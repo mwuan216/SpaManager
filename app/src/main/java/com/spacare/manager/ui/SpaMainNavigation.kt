@@ -17,6 +17,7 @@ import com.spacare.manager.feature.checkout.CheckoutQrScreen
 import com.spacare.manager.feature.crm.ClientListScreen
 import com.spacare.manager.feature.crm.ClientProfileScreen
 import com.spacare.manager.feature.dashboard.RevenueDashboardScreen
+import com.spacare.manager.feature.settings.StoreSettingsScreen
 
 enum class SpaNavDestination(
     val title: String,
@@ -26,19 +27,25 @@ enum class SpaNavDestination(
     CALENDAR("Lịch Hẹn", Icons.Filled.CalendarMonth, Icons.Outlined.CalendarMonth),
     CRM("Khách Hàng", Icons.Filled.People, Icons.Outlined.People),
     CHECKOUT("Thu Ngân", Icons.Filled.QrCodeScanner, Icons.Outlined.QrCodeScanner),
-    DASHBOARD("Báo Cáo", Icons.Filled.BarChart, Icons.Outlined.BarChart)
+    DASHBOARD("Báo Cáo", Icons.Filled.BarChart, Icons.Outlined.BarChart),
+    SETTINGS("Cài Đặt", Icons.Filled.Storefront, Icons.Outlined.Storefront)
 }
 
 @Composable
 fun SpaMainApp(
     repository: SpaRepository = remember { SpaRepository() }
 ) {
-    var currentDestination by remember { mutableStateOf(SpaNavDestination.CRM) }
+    var currentDestination by remember { mutableStateOf(SpaNavDestination.CALENDAR) }
 
     val clients by repository.clients.collectAsState(initial = emptyList())
-    val selectedClientId by repository.selectedClientId.collectAsState(initial = "KH-8829")
+    val selectedClientId by repository.selectedClientId.collectAsState(initial = null)
     val appointments by repository.appointments.collectAsState(initial = emptyList())
     val currentInvoice by repository.currentInvoice.collectAsState(initial = null)
+    val storeProfile by repository.storeProfile.collectAsState(initial = repository.storeProfile.let { null } ?: com.spacare.manager.domain.model.StoreProfile())
+    val catalogPackages by repository.catalogPackages.collectAsState(initial = emptyList())
+    val technicians by repository.technicians.collectAsState(initial = emptyList())
+
+    var selectedDashboardDate by remember { mutableStateOf("16/10/2026") }
 
     val selectedClient = remember(clients, selectedClientId) {
         clients.find { it.id == selectedClientId }
@@ -54,12 +61,18 @@ fun SpaMainApp(
                     val isSelected = destination == currentDestination
                     NavigationBarItem(
                         selected = isSelected,
-                        onClick = { currentDestination = destination },
+                        onClick = {
+                            if (destination == SpaNavDestination.CRM) {
+                                // Luôn mở màn danh sách khách hàng mới khi ấn vào tab Khách Hàng
+                                repository.selectClient(null)
+                            }
+                            currentDestination = destination
+                        },
                         icon = {
                             Icon(
                                 imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
                                 contentDescription = destination.title,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         },
                         label = {
@@ -176,8 +189,44 @@ fun SpaMainApp(
                 }
             }
             SpaNavDestination.DASHBOARD -> {
+                val dynamicMetrics = remember(selectedDashboardDate, appointments) {
+                    repository.getMetricsForDate(selectedDashboardDate)
+                }
                 RevenueDashboardScreen(
-                    metrics = repository.dashboardMetrics,
+                    metrics = dynamicMetrics,
+                    selectedDate = selectedDashboardDate,
+                    onDateSelected = { newDate ->
+                        selectedDashboardDate = newDate
+                    },
+                    modifier = Modifier.padding(paddingValues)
+                )
+            }
+            SpaNavDestination.SETTINGS -> {
+                StoreSettingsScreen(
+                    storeProfile = storeProfile,
+                    catalogPackages = catalogPackages,
+                    technicians = technicians,
+                    onUpdateStoreProfile = { updated ->
+                        repository.updateStoreProfile(updated)
+                    },
+                    onAddCatalogPackage = { pkg ->
+                        repository.addCatalogPackage(pkg)
+                    },
+                    onUpdateCatalogPackage = { pkg ->
+                        repository.updateCatalogPackage(pkg)
+                    },
+                    onDeleteCatalogPackage = { pkgId ->
+                        repository.deleteCatalogPackage(pkgId)
+                    },
+                    onAddTechnician = { tech ->
+                        repository.addTechnician(tech)
+                    },
+                    onUpdateTechnician = { tech ->
+                        repository.updateTechnician(tech)
+                    },
+                    onDeleteTechnician = { techId ->
+                        repository.deleteTechnician(techId)
+                    },
                     modifier = Modifier.padding(paddingValues)
                 )
             }

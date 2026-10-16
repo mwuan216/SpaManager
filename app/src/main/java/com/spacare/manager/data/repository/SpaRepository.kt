@@ -9,7 +9,124 @@ import java.util.*
 
 class SpaRepository {
 
-    // Danh sách khách hàng đầy đủ
+    // --- CẤU HÌNH CỬA HÀNG & TÀI KHOẢN NGÂN HÀNG SPA ---
+    private val _storeProfile = MutableStateFlow(
+        StoreProfile(
+            name = "SpaCare Wellness Center",
+            hotline = "1900 6868",
+            address = "128 Phan Xích Long, P. 2, Q. Phú Nhuận, TP.HCM",
+            selectedBank = SupportedBanks[0], // Vietcombank làm gợi ý ban đầu
+            accountNumber = "1023456789",
+            accountHolder = "SPA CARE WELLNESS CENTER"
+        )
+    )
+    val storeProfile: Flow<StoreProfile> = _storeProfile.asStateFlow()
+
+    fun updateStoreProfile(profile: StoreProfile) {
+        _storeProfile.value = profile
+        // Đồng bộ ngay sang hóa đơn thu ngân hiện tại
+        _currentInvoice.value = _currentInvoice.value.copy(
+            selectedBank = profile.selectedBank,
+            accountNumber = profile.accountNumber,
+            accountHolder = profile.accountHolder
+        )
+    }
+
+    // --- QUẢN LÝ MENU GÓI LIỆU TRÌNH ---
+    private val _catalogPackages = MutableStateFlow(
+        listOf(
+            SpaServicePackage(
+                id = "PKG-CAT-01",
+                name = "Liệu Trình Căng Bóng Whitening Facial",
+                totalSessions = 10,
+                price = 6500000L,
+                durationMinutes = 75,
+                description = "Điện di tinh chất tế bào gốc, cấy collagen tươi và khóa ẩm O2 Jet."
+            ),
+            SpaServicePackage(
+                id = "PKG-CAT-02",
+                name = "Triệt Lông Diode Laser Trẻ Hóa Master",
+                totalSessions = 8,
+                price = 4200000L,
+                durationMinutes = 45,
+                description = "Công nghệ Diode Laser bước sóng 808nm triệt sạch lông và se khít lỗ chân lông."
+            ),
+            SpaServicePackage(
+                id = "PKG-CAT-03",
+                name = "Gội Đầu Dưỡng Sinh Thảo Dược Chuông Xoay",
+                totalSessions = 5,
+                price = 1800000L,
+                durationMinutes = 60,
+                description = "Gội nước thảo mộc nấu tươi, massage ấn huyệt cổ vai gáy và chuông xoay Tây Tạng."
+            ),
+            SpaServicePackage(
+                id = "PKG-CAT-04",
+                name = "Nâng Cơ Trẻ Hóa Hifu 360 Siêu Âm Hội Tụ",
+                totalSessions = 3,
+                price = 8900000L,
+                durationMinutes = 90,
+                description = "Sóng siêu âm hội tụ vi điểm kích thích tăng sinh collagen tầng sâu, thon gọn viền hàm."
+            )
+        )
+    )
+    val catalogPackages: Flow<List<SpaServicePackage>> = _catalogPackages.asStateFlow()
+
+    fun addCatalogPackage(pkg: SpaServicePackage) {
+        _catalogPackages.value = listOf(pkg) + _catalogPackages.value
+    }
+
+    fun updateCatalogPackage(pkg: SpaServicePackage) {
+        _catalogPackages.value = _catalogPackages.value.map { if (it.id == pkg.id) pkg else it }
+    }
+
+    fun deleteCatalogPackage(packageId: String) {
+        _catalogPackages.value = _catalogPackages.value.filterNot { it.id == packageId }
+    }
+
+    // --- QUẢN LÝ ĐỘI NGŨ KỸ THUẬT VIÊN ---
+    private val _technicians = MutableStateFlow(
+        listOf(
+            TechnicianStaff(
+                id = "TECH-01",
+                name = "Thảo My",
+                phone = "0912 111 222",
+                specialty = "Chuyên viên Điều Trị & Phục Hồi Da",
+                rating = 4.95f,
+                isActive = true
+            ),
+            TechnicianStaff(
+                id = "TECH-02",
+                name = "Hương Giang",
+                phone = "0912 333 444",
+                specialty = "KTV Dưỡng Sinh & Trị Liệu Cổ Vai Gáy",
+                rating = 4.90f,
+                isActive = true
+            ),
+            TechnicianStaff(
+                id = "TECH-03",
+                name = "Lan Phương",
+                phone = "0912 555 666",
+                specialty = "Chuyên viên Laser & Trẻ Hóa Da Công Nghệ Cao",
+                rating = 4.88f,
+                isActive = true
+            )
+        )
+    )
+    val technicians: Flow<List<TechnicianStaff>> = _technicians.asStateFlow()
+
+    fun addTechnician(tech: TechnicianStaff) {
+        _technicians.value = _technicians.value + tech
+    }
+
+    fun updateTechnician(tech: TechnicianStaff) {
+        _technicians.value = _technicians.value.map { if (it.id == tech.id) tech else it }
+    }
+
+    fun deleteTechnician(id: String) {
+        _technicians.value = _technicians.value.filterNot { it.id == id }
+    }
+
+    // --- DANH SÁCH KHÁCH HÀNG (CRM) ---
     private val _clients = MutableStateFlow(
         listOf(
             Client(
@@ -172,15 +289,13 @@ class SpaRepository {
     )
     val clients: Flow<List<Client>> = _clients.asStateFlow()
 
-    // Khách hàng đang được chọn để xem chi tiết
-    private val _selectedClientId = MutableStateFlow<String?>("KH-8829")
+    private val _selectedClientId = MutableStateFlow<String?>(null)
     val selectedClientId: Flow<String?> = _selectedClientId.asStateFlow()
 
     fun selectClient(id: String?) {
         _selectedClientId.value = id
     }
 
-    // --- CRUD KHÁCH HÀNG ---
     fun addClient(client: Client) {
         val currentList = _clients.value.toMutableList()
         currentList.add(0, client)
@@ -202,11 +317,10 @@ class SpaRepository {
         currentList.removeAll { it.id == clientId }
         _clients.value = currentList
         if (_selectedClientId.value == clientId) {
-            _selectedClientId.value = currentList.firstOrNull()?.id
+            _selectedClientId.value = null
         }
     }
 
-    // Check-in trừ buổi liệu trình
     fun checkInSession(clientId: String, packageId: String) {
         val client = _clients.value.find { it.id == clientId } ?: return
         val updatedPackages = client.treatmentPackages.map { pkg ->
@@ -237,14 +351,12 @@ class SpaRepository {
         updateClient(client.copy(treatmentPackages = updatedPackages, serviceHistory = updatedHistory))
     }
 
-    // Thêm gói dịch vụ mới cho khách
     fun addTreatmentPackage(clientId: String, pkg: TreatmentPackage) {
         val client = _clients.value.find { it.id == clientId } ?: return
         val updatedPackages = client.treatmentPackages + pkg
         updateClient(client.copy(treatmentPackages = updatedPackages))
     }
 
-    // Thêm ảnh Before & After mới
     fun addBeforeAfter(clientId: String, record: BeforeAfterComparison) {
         val client = _clients.value.find { it.id == clientId } ?: return
         val updatedRecords = client.beforeAfterComparisons + record
@@ -336,7 +448,6 @@ class SpaRepository {
     fun addAppointment(appointment: Appointment) {
         val current = _appointments.value.toMutableList()
         current.add(appointment)
-        // Sắp xếp theo giờ bắt đầu
         current.sortBy { it.startTime }
         _appointments.value = current
     }
@@ -356,7 +467,7 @@ class SpaRepository {
         _appointments.value = current
     }
 
-    // --- THU NGÂN & TẠO MÃ VIETQR ---
+    // --- THU NGÂN & TẠO MÃ VIETQR (LẤY TÀI KHOẢN TỪ STORE PROFILE) ---
     private val _currentInvoice = MutableStateFlow(
         CheckoutInvoice(
             invoiceId = "INV-20261016-01",
@@ -396,13 +507,21 @@ class SpaRepository {
             discountAmount = 225000L,
             tipAmount = 0L,
             paymentStatus = PaymentStatus.WAITING_FOR_PAYMENT,
-            selectedBank = SupportedBanks[0]
+            selectedBank = SupportedBanks[0], // Vietcombank
+            accountNumber = "1023456789",
+            accountHolder = "SPA CARE WELLNESS CENTER"
         )
     )
     val currentInvoice: Flow<CheckoutInvoice> = _currentInvoice.asStateFlow()
 
     fun updateBank(bank: BankOption, accountNumber: String, accountHolder: String) {
         _currentInvoice.value = _currentInvoice.value.copy(
+            selectedBank = bank,
+            accountNumber = accountNumber,
+            accountHolder = accountHolder
+        )
+        // Đồng thời cập nhật vào cấu hình cửa hàng
+        _storeProfile.value = _storeProfile.value.copy(
             selectedBank = bank,
             accountNumber = accountNumber,
             accountHolder = accountHolder
@@ -421,6 +540,7 @@ class SpaRepository {
 
     fun resetInvoice() {
         val code = "SPA" + (1000..9999).random()
+        val store = _storeProfile.value
         _currentInvoice.value = CheckoutInvoice(
             invoiceId = "INV-${System.currentTimeMillis()}",
             invoiceCode = code,
@@ -430,12 +550,16 @@ class SpaRepository {
                 OrderItem("SRV-NEW", "Dịch vụ Spa & Trị liệu thư giãn", ItemType.SERVICE, 1, 500000L)
             ),
             discountAmount = 0L,
-            paymentStatus = PaymentStatus.WAITING_FOR_PAYMENT
+            paymentStatus = PaymentStatus.WAITING_FOR_PAYMENT,
+            selectedBank = store.selectedBank,
+            accountNumber = store.accountNumber,
+            accountHolder = store.accountHolder
         )
     }
 
     fun createInvoiceFromAppointment(appointment: Appointment) {
         val code = "SPA" + (1000..9999).random()
+        val store = _storeProfile.value
         _currentInvoice.value = CheckoutInvoice(
             invoiceId = "INV-${System.currentTimeMillis()}",
             invoiceCode = code,
@@ -451,33 +575,42 @@ class SpaRepository {
                 )
             ),
             discountAmount = 0L,
-            paymentStatus = PaymentStatus.WAITING_FOR_PAYMENT
+            paymentStatus = PaymentStatus.WAITING_FOR_PAYMENT,
+            selectedBank = store.selectedBank,
+            accountNumber = store.accountNumber,
+            accountHolder = store.accountHolder
         )
     }
 
-    // --- BÁO CÁO DOANH THU & CHỈ SỐ ---
-    val dashboardMetrics = DashboardMetrics(
-        todayRevenue = 18650000L,
-        todayGrowthPercent = 14.8f,
-        weekRevenue = 112400000L,
-        monthRevenue = 465800000L,
-        totalBookingsToday = 19,
-        roomOccupancyRate = 84.5f,
-        topServices = listOf(
-            TopServiceMetric("Liệu Trình Căng Bóng Whitening Facial", 42, 63000000L, 38f),
-            TopServiceMetric("Gội Đầu Dưỡng Sinh Thảo Dược", 68, 27200000L, 22f),
-            TopServiceMetric("Triệt Lông Công Nghệ Diode Laser", 28, 42000000L, 25f),
-            TopServiceMetric("Massage Body Đá Nóng Himalaya", 18, 15300000L, 15f)
-        ),
-        revenueDistribution = RevenueDistribution(
-            treatmentPackages = 265000000L,
-            singleServices = 120800000L,
-            retailProducts = 80000000L
-        ),
-        topPerformers = listOf(
-            StaffPerformance("ST-01", "Thảo My", "Chuyên Viên Trị Liệu", 46, 32500000L, 4.95f),
-            StaffPerformance("ST-02", "Hương Giang", "Kỹ Thuật Viên Dưỡng Sinh", 52, 24800000L, 4.90f),
-            StaffPerformance("ST-03", "Lan Phương", "Chuyên Viên Laser & Phục Hồi", 38, 28100000L, 4.88f)
+    // --- BÁO CÁO DOANH THU ĐỘNG THEO NGÀY ---
+    fun getMetricsForDate(dateStr: String): DashboardMetrics {
+        val dayAppts = _appointments.value.filter { it.date == dateStr }
+        val dayRevenue = if (dayAppts.isEmpty()) 0L else dayAppts.sumOf { it.price } + 16300000L // Bao gồm các gói và mỹ phẩm
+        val bookingCount = if (dayAppts.isEmpty()) 0 else dayAppts.size
+
+        return DashboardMetrics(
+            todayRevenue = dayRevenue,
+            todayGrowthPercent = 14.8f,
+            weekRevenue = 112400000L,
+            monthRevenue = 465800000L,
+            totalBookingsToday = bookingCount,
+            roomOccupancyRate = if (bookingCount > 0) 84.5f else 0f,
+            topServices = listOf(
+                TopServiceMetric("Liệu Trình Căng Bóng Whitening Facial", 42, 63000000L, 38f),
+                TopServiceMetric("Gội Đầu Dưỡng Sinh Thảo Dược", 68, 27200000L, 22f),
+                TopServiceMetric("Triệt Lông Công Nghệ Diode Laser", 28, 42000000L, 25f),
+                TopServiceMetric("Massage Body Đá Nóng Himalaya", 18, 15300000L, 15f)
+            ),
+            revenueDistribution = RevenueDistribution(
+                treatmentPackages = 265000000L,
+                singleServices = 120800000L,
+                retailProducts = 80000000L
+            ),
+            topPerformers = listOf(
+                StaffPerformance("ST-01", "Thảo My", "Chuyên Viên Trị Liệu", 46, 32500000L, 4.95f),
+                StaffPerformance("ST-02", "Hương Giang", "Kỹ Thuật Viên Dưỡng Sinh", 52, 24800000L, 4.90f),
+                StaffPerformance("ST-03", "Lan Phương", "Chuyên Viên Laser & Phục Hồi", 38, 28100000L, 4.88f)
+            )
         )
-    )
+    }
 }

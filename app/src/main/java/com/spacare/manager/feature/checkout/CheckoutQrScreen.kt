@@ -1,5 +1,6 @@
 package com.spacare.manager.feature.checkout
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,11 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.spacare.manager.R
 import com.spacare.manager.core.designsystem.theme.*
 import com.spacare.manager.domain.model.*
 import java.text.NumberFormat
@@ -52,17 +55,29 @@ fun CheckoutQrScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "Thu Ngân & Sinh Mã VietQR",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.app_logo),
+                            contentDescription = "Logo",
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
                         )
-                        Text(
-                            text = "Hóa đơn #${invoice.invoiceCode} • ${invoice.clientName}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = CharcoalTextSecondary
-                        )
+                        Column {
+                            Text(
+                                text = "Thu Ngân & Sinh Mã VietQR",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Hóa đơn #${invoice.invoiceCode} • ${invoice.clientName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CharcoalTextSecondary
+                            )
+                        }
                     }
                 },
                 navigationIcon = {

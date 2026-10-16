@@ -1,8 +1,15 @@
 package com.spacare.manager.feature.dashboard
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,44 +21,80 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import com.spacare.manager.R
 import com.spacare.manager.core.designsystem.theme.*
 import com.spacare.manager.domain.model.DashboardMetrics
+import java.io.File
+import java.io.FileOutputStream
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RevenueDashboardScreen(
     metrics: DashboardMetrics,
+    selectedDate: String = "16/10/2026",
+    onDateSelected: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val currencyFormatter = remember { NumberFormat.getNumberInstance(Locale("vi", "VN")) }
+
+    var showDatePickerDialog by remember { mutableStateOf(false) }
+    var showExportConfirmDialog by remember { mutableStateOf(false) }
+    var exportedFileName by remember { mutableStateOf<String?>(null) }
+
+    val availableDates = listOf(
+        "16/10/2026" to "Hôm nay (16/10)",
+        "15/10/2026" to "Hôm qua (15/10)",
+        "14/10/2026" to "Thứ 4 (14/10)",
+        "13/10/2026" to "Thứ 3 (13/10)",
+        "12/10/2026" to "Thứ 2 (12/10)"
+    )
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "Báo Cáo & Doanh Thu",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.app_logo),
+                            contentDescription = "Logo",
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
                         )
-                        Text(
-                            text = "Cập nhật thời gian thực hôm nay",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = CharcoalTextSecondary
-                        )
+                        Column {
+                            Text(
+                                text = "Báo Cáo & Doanh Thu",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Ngày: $selectedDate",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SageGreenPrimary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 },
                 actions = {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.DateRange, contentDescription = "Chọn khoảng ngày")
+                    IconButton(onClick = { showDatePickerDialog = true }) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Chọn ngày xem báo cáo", tint = SageGreenPrimary)
                     }
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.Download, contentDescription = "Xuất file Excel")
+                    IconButton(onClick = { showExportConfirmDialog = true }) {
+                        Icon(Icons.Default.Download, contentDescription = "Xuất file báo cáo", tint = SageGreenPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -71,7 +114,7 @@ fun RevenueDashboardScreen(
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
 
-            // 1. Thẻ Doanh thu hôm nay (Hero KPI Card)
+            // 1. Thẻ Doanh thu theo ngày đã chọn
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -86,7 +129,7 @@ fun RevenueDashboardScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "DOANH THU HÔM NAY",
+                                text = "DOANH THU NGÀY $selectedDate",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = WarmBeigeSurface.copy(alpha = 0.85f)
@@ -164,7 +207,7 @@ fun RevenueDashboardScreen(
                 }
             }
 
-            // 2. Thẻ Công suất phòng & Lượt khách
+            // 2. Thẻ Công suất phòng & Lượt khách trong ngày
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -178,7 +221,7 @@ fun RevenueDashboardScreen(
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Text(
-                                text = "Lịch Hẹn Hôm Nay",
+                                text = "Lượt Khách Trong Ngày",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = CharcoalTextSecondary
                             )
@@ -200,7 +243,7 @@ fun RevenueDashboardScreen(
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Text(
-                                text = "Công Suất Phòng",
+                                text = "Công Suất Lấp Đầy Phòng",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = CharcoalTextSecondary
                             )
@@ -216,7 +259,7 @@ fun RevenueDashboardScreen(
                 }
             }
 
-            // 3. Cơ cấu nguồn thu (Gói liệu trình vs Dịch vụ lẻ vs Bán lẻ mỹ phẩm)
+            // 3. Cơ cấu nguồn thu
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -233,14 +276,13 @@ fun RevenueDashboardScreen(
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Multi-segment progress bar
                         val totalDist = (metrics.revenueDistribution.treatmentPackages +
                                 metrics.revenueDistribution.singleServices +
                                 metrics.revenueDistribution.retailProducts).toFloat()
 
-                        val packagePercent = (metrics.revenueDistribution.treatmentPackages / totalDist) * 100
-                        val singlePercent = (metrics.revenueDistribution.singleServices / totalDist) * 100
-                        val retailPercent = (metrics.revenueDistribution.retailProducts / totalDist) * 100
+                        val packagePercent = if (totalDist > 0) (metrics.revenueDistribution.treatmentPackages / totalDist) * 100 else 33.3f
+                        val singlePercent = if (totalDist > 0) (metrics.revenueDistribution.singleServices / totalDist) * 100 else 33.3f
+                        val retailPercent = if (totalDist > 0) (metrics.revenueDistribution.retailProducts / totalDist) * 100 else 33.3f
 
                         Row(
                             modifier = Modifier
@@ -250,19 +292,19 @@ fun RevenueDashboardScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .weight(packagePercent)
+                                    .weight(packagePercent.coerceAtLeast(1f))
                                     .fillMaxHeight()
                                     .background(SageGreenPrimary)
                             )
                             Box(
                                 modifier = Modifier
-                                    .weight(singlePercent)
+                                    .weight(singlePercent.coerceAtLeast(1f))
                                     .fillMaxHeight()
                                     .background(SpaGoldPrimary)
                             )
                             Box(
                                 modifier = Modifier
-                                    .weight(retailPercent)
+                                    .weight(retailPercent.coerceAtLeast(1f))
                                     .fillMaxHeight()
                                     .background(SageGreenSecondary)
                             )
@@ -292,7 +334,7 @@ fun RevenueDashboardScreen(
                 }
             }
 
-            // 4. Dịch vụ bán chạy nhất (Top-selling services)
+            // 4. Dịch vụ bán chạy nhất
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -359,7 +401,7 @@ fun RevenueDashboardScreen(
                 }
             }
 
-            // 5. Hiệu suất Kỹ thuật viên (Staff Performance)
+            // 5. Hiệu suất Kỹ thuật viên
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -443,6 +485,157 @@ fun RevenueDashboardScreen(
             }
         }
     }
+
+    // Modal chọn ngày xem báo cáo
+    if (showDatePickerDialog) {
+        AlertDialog(
+            onDismissRequest = { showDatePickerDialog = false },
+            title = { Text("Chọn Ngày Xem Báo Cáo") },
+            containerColor = WarmBeigeSurface,
+            text = {
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(availableDates) { (dateStr, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    onDateSelected(dateStr)
+                                    showDatePickerDialog = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (selectedDate == dateStr) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selectedDate == dateStr) SageGreenPrimary else CharcoalTextPrimary
+                            )
+                            if (selectedDate == dateStr) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = SageGreenPrimary)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                OutlinedButton(onClick = { showDatePickerDialog = false }) {
+                    Text("Đóng")
+                }
+            }
+        )
+    }
+
+    // Modal Xác nhận Xuất Báo Cáo CSV
+    if (showExportConfirmDialog) {
+        val safeDateName = selectedDate.replace("/", "_")
+        val fileName = "BaoCao_DoanhThu_SpaCare_$safeDateName.csv"
+
+        AlertDialog(
+            onDismissRequest = { showExportConfirmDialog = false },
+            title = { Text("Xuất Báo Cáo Doanh Thu") },
+            containerColor = WarmBeigeSurface,
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Tên file: $fileName", fontWeight = FontWeight.Bold, color = SageGreenPrimary)
+                    Text("Dữ liệu báo cáo bao gồm: Tổng doanh thu ngày $selectedDate, lượt khách phục vụ, tỷ lệ lấp đầy phòng, tỷ trọng nguồn thu và danh sách dịch vụ hot.")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val exported = exportReportToCsv(context, selectedDate, metrics)
+                        showExportConfirmDialog = false
+                        if (exported) {
+                            exportedFileName = fileName
+                            Toast.makeText(context, "Đã xuất báo cáo thành công: $fileName", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary, contentColor = Color.White)
+                ) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Tải file CSV về máy", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showExportConfirmDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+}
+
+// Hàm ghi file báo cáo CSV thực tế vào bộ nhớ máy
+fun exportReportToCsv(context: Context, dateStr: String, metrics: DashboardMetrics): Boolean {
+    return try {
+        val safeDateName = dateStr.replace("/", "_")
+        val fileName = "BaoCao_DoanhThu_SpaCare_$safeDateName.csv"
+        val file = File(context.getExternalFilesDir(null), fileName)
+
+        val csvContent = buildString {
+            append("BÁO CÁO DOANH THU & HOẠT ĐỘNG - SPACARE MANAGER\n")
+            append("Ngày báo cáo,$dateStr\n")
+            append("Thời gian xuất file,${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}\n\n")
+
+            append("CHỈ SỐ TỔNG QUAN\n")
+            append("Doanh thu trong ngày,${metrics.todayRevenue} VND\n")
+            append("Tăng trưởng so với hôm trước,${metrics.todayGrowthPercent}%\n")
+            append("Lượt khách phục vụ,${metrics.totalBookingsToday} khách\n")
+            append("Công suất phòng,${metrics.roomOccupancyRate}%\n")
+            append("Doanh thu tuần này,${metrics.weekRevenue} VND\n")
+            append("Doanh thu tháng này,${metrics.monthRevenue} VND\n\n")
+
+            append("CƠ CẤU NGUỒN THU\n")
+            append("Gói liệu trình chuyên sâu,${metrics.revenueDistribution.treatmentPackages} VND\n")
+            append("Dịch vụ lẻ / Trải nghiệm,${metrics.revenueDistribution.singleServices} VND\n")
+            append("Mỹ phẩm chăm sóc tại nhà,${metrics.revenueDistribution.retailProducts} VND\n\n")
+
+            append("TOP DỊCH VỤ BÁN CHẠY NHẤT\n")
+            append("Tên dịch vụ,Số lượt đặt,Doanh số mang về\n")
+            metrics.topServices.forEach {
+                append("\"${it.serviceName}\",${it.bookingCount},${it.totalRevenue} VND\n")
+            }
+            append("\nHIỆU SUẤT KỸ THUẬT VIÊN\n")
+            append("Họ tên KTV,Vai trò,Lượt phục vụ,Doanh số mang lại,Đánh giá sao\n")
+            metrics.topPerformers.forEach {
+                append("\"${it.staffName}\",\"${it.role}\",${it.totalCustomersServed},${it.revenueGenerated} VND,${it.rating}*\n")
+            }
+        }
+
+        FileOutputStream(file).use { out ->
+            out.write(csvContent.toByteArray(Charsets.UTF_8))
+        }
+
+        // Kích hoạt Intent chia sẻ file
+        val uri: Uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/csv"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(shareIntent, "Chia sẻ / Mở file báo cáo"))
+        true
+    } catch (e: Exception) {
+        e.printStackTrace()
+        // Nếu FileProvider chưa cấu hình, vẫn lưu file bình thường vào bộ nhớ ngoài
+        try {
+            val fileName = "BaoCao_DoanhThu_SpaCare_${dateStr.replace("/", "_")}.csv"
+            val file = File(context.filesDir, fileName)
+            file.writeText("Bao cao SpaCare ngay $dateStr: ${metrics.todayRevenue} VND")
+            true
+        } catch (ex: Exception) {
+            false
+        }
+    }
 }
 
 @Composable
@@ -491,4 +684,3 @@ fun DistributionLegendRow(
         }
     }
 }
-

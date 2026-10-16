@@ -1,5 +1,6 @@
 package com.spacare.manager.feature.calendar
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,10 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.spacare.manager.R
 import com.spacare.manager.core.designsystem.theme.*
 import com.spacare.manager.domain.model.Appointment
 import com.spacare.manager.domain.model.AppointmentStatus
@@ -91,17 +94,29 @@ fun CalendarSchedulerScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "Lịch Hẹn & Phân Bổ Phòng",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.app_logo),
+                            contentDescription = "Logo",
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
                         )
-                        Text(
-                            text = "Ngày $selectedDate • ${filteredAppointments.size} cuộc hẹn",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = CharcoalTextSecondary
-                        )
+                        Column {
+                            Text(
+                                text = "Lịch Hẹn & Phân Bổ Phòng",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Ngày $selectedDate • ${filteredAppointments.size} cuộc hẹn",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CharcoalTextSecondary
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -715,38 +730,55 @@ fun AppointmentDetailDialog(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
                         onClick = { onUpdateStatus(AppointmentStatus.IN_SERVICE) },
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                     ) {
-                        Text("Đang làm", fontSize = 11.sp)
+                        Text("Đang làm", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
                     Button(
                         onClick = { onUpdateStatus(AppointmentStatus.COMPLETED) },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SageGreenPrimary,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                     ) {
-                        Text("Hoàn thành", fontSize = 11.sp)
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Hoàn thành", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Button(
                     onClick = onCheckout,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = SpaGoldPrimary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SpaGoldPrimary,
+                        contentColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(vertical = 10.dp)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Chuyển sang Thu Ngân tạo VietQR")
+                    Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Chuyển sang Thu Ngân tạo VietQR",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
                 }
             }
         },
+        containerColor = WarmBeigeSurface,
+        titleContentColor = CharcoalTextPrimary,
+        textContentColor = CharcoalTextPrimary,
         confirmButton = {
             TextButton(
                 onClick = onDelete,

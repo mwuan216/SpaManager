@@ -29,19 +29,21 @@ data class BankOption(
 )
 
 val SupportedBanks = listOf(
-    BankOption("970422", "MBBank", "Ngân hàng Quân Đội"),
-    BankOption("970436", "Vietcombank", "Ngân hàng Ngoại Thương Việt Nam"),
-    BankOption("970407", "Techcombank", "Ngân hàng Kỹ Thương"),
+    BankOption("970436", "Vietcombank", "Ngân hàng Ngoại Thương Việt Nam (VCB)"),
+    BankOption("970407", "Techcombank", "Ngân hàng Kỹ Thương Việt Nam (TCB)"),
+    BankOption("970415", "VietinBank", "Ngân hàng Công Thương Việt Nam (CTG)"),
+    BankOption("970418", "BIDV", "Ngân hàng Đầu tư và Phát triển Việt Nam"),
     BankOption("970432", "VPBank", "Ngân hàng Việt Nam Thịnh Vượng"),
     BankOption("970416", "ACB", "Ngân hàng Á Châu"),
-    BankOption("970418", "BIDV", "Ngân hàng Đầu tư và Phát triển"),
-    BankOption("970458", "TPBank", "Ngân hàng Tiên Phong")
+    BankOption("970422", "MBBank", "Ngân hàng Quân Đội"),
+    BankOption("970458", "TPBank", "Ngân hàng Tiên Phong"),
+    BankOption("970403", "Sacombank", "Ngân hàng Sài Gòn Thương Tín")
 )
 
 data class VietQrInfo(
-    val bankId: String = "970422", // Default MBBank BIN
-    val bankShortName: String = "MBBank",
-    val accountNumber: String = "0888999888",
+    val bankId: String = "970436", // Vietcombank BIN code
+    val bankShortName: String = "Vietcombank",
+    val accountNumber: String = "1023456789",
     val accountHolder: String = "SPA CARE WELLNESS CENTER",
     val amount: Long,
     val referenceCode: String,
@@ -64,7 +66,7 @@ data class CheckoutInvoice(
     val transactionRef: String? = null,
     val paidAt: String? = null,
     val selectedBank: BankOption = SupportedBanks[0],
-    val accountNumber: String = "0888999888",
+    val accountNumber: String = "1023456789",
     val accountHolder: String = "SPA CARE WELLNESS CENTER"
 ) {
     val subtotal: Long get() = items.sumOf { it.totalPrice }
