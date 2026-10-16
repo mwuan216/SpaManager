@@ -77,21 +77,20 @@ fun CalendarSchedulerScreen(
     var showCreateDialog by remember { mutableStateOf(false) }
     var activeAppointmentDetail by remember { mutableStateOf<Appointment?>(null) }
 
-    // 7 ngày của tuần hiện tại (Thứ 2 đến Chủ Nhật)
-    val daysList = remember {
+    // Dải 7 ngày xung quanh ngày đang chọn (-3 ngày đến +3 ngày)
+    val daysList = remember(selectedDateStr) {
         val fullSdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
         val dayMonthSdf = SimpleDateFormat("dd/MM", Locale.getDefault())
-
+        val currentDate = try {
+            fullSdf.parse(selectedDateStr) ?: Date()
+        } catch (e: Exception) {
+            Date()
+        }
         val cal = Calendar.getInstance()
-        val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
-        val daysFromMonday = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
-        cal.add(Calendar.DAY_OF_YEAR, -daysFromMonday)
-        val mondayCal = cal.clone() as Calendar
-
-        (0..6).map { offset ->
-            val c = mondayCal.clone() as Calendar
-            c.add(Calendar.DAY_OF_YEAR, offset)
-            val dow = when (c.get(Calendar.DAY_OF_WEEK)) {
+        (-3..3).map { offset ->
+            cal.time = currentDate
+            cal.add(Calendar.DAY_OF_YEAR, offset)
+            val dow = when (cal.get(Calendar.DAY_OF_WEEK)) {
                 Calendar.MONDAY -> "T2"
                 Calendar.TUESDAY -> "T3"
                 Calendar.WEDNESDAY -> "T4"
@@ -101,8 +100,8 @@ fun CalendarSchedulerScreen(
                 Calendar.SUNDAY -> "CN"
                 else -> ""
             }
-            val dayMonth = dayMonthSdf.format(c.time)
-            val full = fullSdf.format(c.time)
+            val dayMonth = dayMonthSdf.format(cal.time)
+            val full = fullSdf.format(cal.time)
             DayItem(
                 dayOfWeek = dow,
                 dayNumber = dayMonth,
