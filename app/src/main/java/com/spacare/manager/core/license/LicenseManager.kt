@@ -106,7 +106,7 @@ class LicenseManager private constructor(context: Context) {
             val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
             prefs.edit()
                 .putBoolean(KEY_IS_ACTIVATED, true)
-                .putString(KEY_ACTIVATED_KEY, cleanedKey)
+                .putString(KEY_ACTIVATED_KEY, ACTIVATION_KEY)
                 .putString(KEY_ACTIVATED_DATE, sdf.format(Date()))
                 .apply()
             return true
@@ -115,37 +115,13 @@ class LicenseManager private constructor(context: Context) {
     }
 
     /**
-     * Hủy kích hoạt để quay lại trạng thái dùng thử (phục vụ test)
+     * Hủy kích hoạt bản quyền
      */
     fun deactivateLicense() {
         prefs.edit()
             .putBoolean(KEY_IS_ACTIVATED, false)
             .remove(KEY_ACTIVATED_KEY)
             .remove(KEY_ACTIVATED_DATE)
-            .apply()
-    }
-
-    /**
-     * Đặt trạng thái dùng thử về hết hạn (phục vụ test màn hình khóa kích hoạt)
-     */
-    fun simulateTrialExpired() {
-        prefs.edit()
-            .putBoolean(KEY_IS_ACTIVATED, false)
-            .remove(KEY_ACTIVATED_KEY)
-            .remove(KEY_ACTIVATED_DATE)
-            .putLong(KEY_FIRST_LAUNCH_MS, System.currentTimeMillis() - (TRIAL_DURATION_MS + 1000L))
-            .apply()
-    }
-
-    /**
-     * Đặt lại thời gian dùng thử đủ 3 ngày mới (phục vụ test)
-     */
-    fun resetTrial() {
-        prefs.edit()
-            .putBoolean(KEY_IS_ACTIVATED, false)
-            .remove(KEY_ACTIVATED_KEY)
-            .remove(KEY_ACTIVATED_DATE)
-            .putLong(KEY_FIRST_LAUNCH_MS, System.currentTimeMillis())
             .apply()
     }
 
@@ -156,50 +132,17 @@ class LicenseManager private constructor(context: Context) {
         private const val KEY_ACTIVATED_KEY = "key_activated_key"
         private const val KEY_ACTIVATED_DATE = "key_activated_date"
 
-        // 3 ngày = 3 * 24 * 60 * 60 * 1000 = 259_200_000 ms
+        // 3 ngày dùng thử = 3 * 24 * 60 * 60 * 1000 = 259_200_000 ms
         const val TRIAL_DURATION_MS = 3 * 24 * 60 * 60 * 1000L
 
-        // Danh sách Master Key VIP/PRO chính thức được tạo sẵn để chia sẻ cho bạn bè
-        val PRESET_FRIEND_KEYS = listOf(
-            "SPACARE-VIP-8888-9999",
-            "SPACARE-PRO-2026-8888",
-            "SPACARE-FRIEND-7777-6666",
-            "SPACARE-GOLD-9999-1111",
-            "SPACARE-PREMIUM-5555-4444",
-            "SPACARE-MASTER-3333-2222",
-            "SPACARE-SPA-6868-8686",
-            "SPACARE-LIFETIME-1234-5678"
-        )
+        // Key kích hoạt bản quyền thương mại duy nhất
+        const val ACTIVATION_KEY = "SPACARE_ACTIVE_216"
 
         /**
-         * Kiểm tra tính hợp lệ của key:
-         * 1. Nằm trong danh sách Master Key được cung cấp sẵn
-         * 2. Hoặc thỏa mãn thuật toán checksum mở rộng: SPACARE-[TAG]-[XXXX]-[YYYY]
+         * Kiểm tra tính hợp lệ của key kích hoạt bản quyền
          */
         fun isValidKey(rawKey: String): Boolean {
-            val key = rawKey.trim().uppercase()
-            if (PRESET_FRIEND_KEYS.contains(key)) return true
-
-            // Thuật toán kiểm tra mã checksum động: SPACARE-[PREFIX]-[XXXX]-[YYYY]
-            val regex = Regex("^SPACARE-[A-Z0-9]{3,8}-(\\d{4})-(\\d{4})$")
-            val match = regex.find(key)
-            if (match != null) {
-                val randPart = match.groupValues[1].toIntOrNull() ?: return false
-                val checksum = match.groupValues[2].toIntOrNull() ?: return false
-                val expectedChecksum = (randPart * 7 + 1234) % 9000 + 1000
-                return checksum == expectedChecksum
-            }
-
-            return false
-        }
-
-        /**
-         * Tạo Key kích hoạt bản quyền động mới để người dùng có thể bấm tạo và gửi ngay cho bạn bè
-         */
-        fun generateNewFriendKey(): String {
-            val randPart = (1000..9999).random()
-            val checksum = (randPart * 7 + 1234) % 9000 + 1000
-            return "SPACARE-FRND-$randPart-$checksum"
+            return rawKey.trim().equals(ACTIVATION_KEY, ignoreCase = true)
         }
 
         @Volatile

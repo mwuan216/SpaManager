@@ -105,7 +105,7 @@ fun TrialExpiredLockDialog(
                         errorMessage = null
                     },
                     label = { Text("Nhập Key kích hoạt bản quyền") },
-                    placeholder = { Text("Ví dụ: SPACARE-PRO-2026-8888") },
+                    placeholder = { Text("Nhập mã bản quyền...") },
                     leadingIcon = {
                         Icon(Icons.Default.Key, contentDescription = null, tint = SageGreenPrimary)
                     },
@@ -125,7 +125,7 @@ fun TrialExpiredLockDialog(
                         if (errorMessage != null) {
                             Text(errorMessage!!, color = AllergyAlertRed)
                         } else {
-                            Text("Định dạng: SPACARE-XXXX-XXXX-XXXX")
+                            Text("Nhập mã kích hoạt do đơn vị phát triển cung cấp")
                         }
                     },
                     singleLine = true,
@@ -164,29 +164,13 @@ fun TrialExpiredLockDialog(
                     Text("Kích Hoạt Ngay", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Gợi ý hỗ trợ / thử key mẫu
-                TextButton(
-                    onClick = {
-                        // Tự động điền 1 key VIP mẫu
-                        inputKey = "SPACARE-VIP-8888-9999"
-                        errorMessage = null
-                    }
-                ) {
-                    Text(
-                        text = "Điền key mẫu: SPACARE-VIP-8888-9999",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SpaGoldPrimary,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Hotline hỗ trợ: 1900 6868 • Email: support@spacare.vn",
+                    text = "Liên hệ mua bản quyền / Hỗ trợ: support@spacare.vn",
                     style = MaterialTheme.typography.bodySmall,
                     color = CharcoalTextMuted,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     textAlign = TextAlign.Center
                 )
             }
