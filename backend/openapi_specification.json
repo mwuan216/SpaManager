@@ -1,0 +1,109 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SpaCare Manager Mobile API",
+    "description": "API kỹ thuật số phục vụ ứng dụng Android Quản lý Spa & Thẩm mỹ viện cao cấp",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.spacare.vn/v1",
+      "description": "Máy chủ sản xuất (Production)"
+    },
+    {
+      "url": "http://localhost:3000/api/v1",
+      "description": "Máy chủ phát triển (Development / Local)"
+    }
+  ],
+  "paths": {
+    "/clients/{id}": {
+      "get": {
+        "summary": "Lấy thông tin CRM chi tiết khách hàng",
+        "description": "Bao gồm tình trạng da, cảnh báo dị ứng, tiến độ các gói liệu trình và album ảnh Before/After",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "KH-8829"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Thành công" },
+          "404": { "description": "Không tìm thấy khách hàng" }
+        }
+      }
+    },
+    "/checkout/create-vietqr": {
+      "post": {
+        "summary": "Tạo mã QR thanh toán động VietQR",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "invoiceCode": { "type": "string", "example": "SPA8829" },
+                  "amount": { "type": "integer", "example": 2025000 },
+                  "bankBin": { "type": "string", "example": "970422" },
+                  "accountNumber": { "type": "string", "example": "0888999888" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Trả về VietQR Image URL và thông số chuyển khoản" }
+        }
+      }
+    },
+    "/webhooks/bank-payment": {
+      "post": {
+        "summary": "Webhook nhận biến động số dư ngân hàng (VietQR / Casso / SePAY)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "gateway": { "type": "string", "example": "MBBank" },
+                  "transferAmount": { "type": "integer", "example": 2025000 },
+                  "content": { "type": "string", "example": "Thanh toan hoa don SPA8829" },
+                  "referenceCode": { "type": "string", "example": "FT241016999" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Đã xử lý webhook và bắn thông báo qua SSE" }
+        }
+      }
+    },
+    "/appointments": {
+      "get": {
+        "summary": "Lấy lịch hẹn phục vụ tại Spa",
+        "parameters": [
+          { "name": "date", "in": "query", "schema": { "type": "string" } },
+          { "name": "staffId", "in": "query", "schema": { "type": "string" } },
+          { "name": "roomId", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách lịch hẹn" }
+        }
+      }
+    },
+    "/dashboard/metrics": {
+      "get": {
+        "summary": "Lấy chỉ số tài chính, doanh thu và hiệu suất KTV",
+        "responses": {
+          "200": { "description": "Báo cáo doanh thu thời gian thực" }
+        }
+      }
+    }
+  }
+}
+

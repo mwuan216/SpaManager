@@ -1,0 +1,58 @@
+package com.spacare.manager.domain.model
+
+data class Client(
+    val id: String,
+    val fullName: String,
+    val phone: String,
+    val email: String,
+    val avatarUrl: String? = null,
+    val vipTier: VipTier = VipTier.GOLD,
+    val skinType: String,
+    val skinConditionNotes: String,
+    val allergyAlerts: List<String>,
+    val contraindications: List<String>, // Chống chỉ định y khoa (ví dụ: đang mang thai, tiêm botox < 2 tuần)
+    val treatmentPackages: List<TreatmentPackage>,
+    val serviceHistory: List<ServiceRecord>,
+    val beforeAfterComparisons: List<BeforeAfterComparison>
+)
+
+enum class VipTier(val title: String) {
+    STANDARD("Thành Viên Thân Thiết"),
+    SILVER("Hội Viên Bạc"),
+    GOLD("Hội Viên Vàng (VIP)"),
+    DIAMOND("Khách Hàng Kim Cương")
+}
+
+data class TreatmentPackage(
+    val id: String,
+    val name: String,
+    val totalSessions: Int,
+    val usedSessions: Int,
+    val remainingSessions: Int,
+    val startDate: String,
+    val expiryDate: String,
+    val assignedTherapist: String
+)
+
+data class BeforeAfterComparison(
+    val id: String,
+    val treatmentName: String,
+    val beforeDate: String,
+    val afterDate: String,
+    val beforeImageUrl: String,
+    val afterImageUrl: String,
+    val sessionMilestone: String, // ví dụ: "Buổi 1 vs Buổi 7"
+    val technicianName: String,
+    val clinicalNotes: String
+)
+
+data class ServiceRecord(
+    val id: String,
+    val date: String,
+    val serviceName: String,
+    val technicianName: String,
+    val room: String,
+    val cost: Long,
+    val feedback: String? = null
+)
+
