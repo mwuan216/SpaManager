@@ -50,6 +50,9 @@ fun StoreSettingsScreen(
     storeProfile: StoreProfile,
     catalogPackages: List<SpaServicePackage>,
     technicians: List<TechnicianStaff>,
+    isRealUsageMode: Boolean = false,
+    onStartRealUsage: () -> Unit = {},
+    onRestoreDemoData: () -> Unit = {},
     onUpdateStoreProfile: (StoreProfile) -> Unit,
     onAddCatalogPackage: (SpaServicePackage) -> Unit,
     onUpdateCatalogPackage: (SpaServicePackage) -> Unit,
@@ -89,6 +92,8 @@ fun StoreSettingsScreen(
     var licenseStatus by remember { mutableStateOf(licenseManager.getLicenseStatus()) }
     var inputLicenseKey by remember { mutableStateOf("") }
     var licenseError by remember { mutableStateOf<String?>(null) }
+    var showConfirmRealUsageDialog by remember { mutableStateOf(false) }
+    var showConfirmRestoreDemoDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -763,6 +768,115 @@ fun StoreSettingsScreen(
                             }
                         }
                     }
+
+                    // 2. Thẻ Chế Độ Dữ Liệu Ứng Dụng (Bắt Đầu Sử Dụng Thực Tế)
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(18.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Dataset,
+                                            contentDescription = null,
+                                            tint = if (isRealUsageMode) SuccessGreen else SpaGoldPrimary
+                                        )
+                                        Text(
+                                            text = "Chế Độ Dữ Liệu Spa",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CharcoalTextPrimary
+                                        )
+                                    }
+
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (isRealUsageMode) SuccessGreenContainer else SpaGoldContainer
+                                    ) {
+                                        Text(
+                                            text = if (isRealUsageMode) "Dữ Liệu Thật (PRO)" else "Dữ Liệu Mẫu (Demo)",
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isRealUsageMode) SuccessGreen else SpaGoldPrimary
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Text(
+                                    text = if (isRealUsageMode) {
+                                        "Ứng dụng đang hoạt động với dữ liệu thực tế của cơ sở Spa của bạn. Toàn bộ dữ liệu khách hàng, lịch hẹn và doanh thu mẫu ban đầu đã được dọn sạch hoàn toàn."
+                                    } else {
+                                        "Mặc định khi cài đặt, ứng dụng hiển thị sẵn danh sách khách hàng mẫu, liệu trình, lịch hẹn và doanh thu demo để bạn trải nghiệm UI/UX. Khi bạn đã sẵn sàng sử dụng chính thức cho Spa của mình, hãy bấm 'Bắt Đầu Sử Dụng' để xóa toàn bộ dữ liệu mẫu."
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = CharcoalTextSecondary,
+                                    lineHeight = 19.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                if (!isRealUsageMode) {
+                                    Button(
+                                        onClick = { showConfirmRealUsageDialog = true },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = SageGreenPrimary,
+                                            contentColor = Color.White
+                                        ),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PlayArrow,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = Color.White
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Bắt Đầu Sử Dụng (Xóa Dữ Liệu Mẫu)",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                } else {
+                                    OutlinedButton(
+                                        onClick = { showConfirmRestoreDemoDialog = true },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SpaGoldPrimary)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.RestartAlt,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = SpaGoldPrimary
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Khôi phục dữ liệu mẫu thử nghiệm",
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 12.sp,
+                                            color = SpaGoldPrimary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -968,6 +1082,85 @@ fun StoreSettingsScreen(
                     Text("Hủy")
                 }
             }
+        )
+    }
+
+    // Dialog xác nhận chuyển sang chế độ Bắt đầu sử dụng thực tế (Xóa dữ liệu mẫu)
+    if (showConfirmRealUsageDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmRealUsageDialog = false },
+            title = {
+                Text(
+                    text = "Bắt Đầu Sử Dụng Thực Tế?",
+                    fontWeight = FontWeight.Bold,
+                    color = CharcoalTextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Hành động này sẽ xóa toàn bộ dữ liệu mẫu (khách hàng, lịch hẹn, lịch sử hóa đơn demo) để bạn bắt đầu nhập và quản lý khách hàng thật cho cơ sở Spa của mình.\n\nBạn có chắc chắn muốn bắt đầu?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = CharcoalTextSecondary,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmRealUsageDialog = false
+                        onStartRealUsage()
+                        Toast.makeText(context, "Đã xóa sạch dữ liệu mẫu! Sẵn sàng sử dụng thực tế cho Spa.", Toast.LENGTH_LONG).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary, contentColor = Color.White)
+                ) {
+                    Text("Xác Nhận & Bắt Đầu", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showConfirmRealUsageDialog = false }) {
+                    Text("Để sau")
+                }
+            },
+            containerColor = WarmBeigeSurface
+        )
+    }
+
+    // Dialog xác nhận khôi phục lại dữ liệu mẫu
+    if (showConfirmRestoreDemoDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmRestoreDemoDialog = false },
+            title = {
+                Text(
+                    text = "Khôi Phục Dữ Liệu Mẫu?",
+                    fontWeight = FontWeight.Bold,
+                    color = CharcoalTextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Nạp lại danh sách khách hàng, lịch hẹn và doanh thu mẫu để tiếp tục thử nghiệm giao diện?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = CharcoalTextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmRestoreDemoDialog = false
+                        onRestoreDemoData()
+                        Toast.makeText(context, "Đã nạp lại dữ liệu mẫu thử nghiệm thành công!", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SpaGoldPrimary, contentColor = Color.White)
+                ) {
+                    Text("Khôi phục", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showConfirmRestoreDemoDialog = false }) {
+                    Text("Hủy")
+                }
+            },
+            containerColor = WarmBeigeSurface
         )
     }
 }

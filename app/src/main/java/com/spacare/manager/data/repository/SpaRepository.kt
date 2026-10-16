@@ -1,5 +1,6 @@
 package com.spacare.manager.data.repository
 
+import android.content.Context
 import com.spacare.manager.domain.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -7,7 +8,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.text.SimpleDateFormat
 import java.util.*
 
-class SpaRepository {
+class SpaRepository(context: Context? = null) {
+
+    private val prefs = context?.applicationContext?.getSharedPreferences(
+        "spacare_usage_mode_prefs",
+        Context.MODE_PRIVATE
+    )
+
+    private val _isRealUsageMode = MutableStateFlow(
+        prefs?.getBoolean("key_is_real_usage", false) ?: false
+    )
+    val isRealUsageMode: Flow<Boolean> = _isRealUsageMode.asStateFlow()
 
     // --- CẤU HÌNH CỬA HÀNG & TÀI KHOẢN NGÂN HÀNG SPA ---
     private val _storeProfile = MutableStateFlow(
@@ -129,8 +140,7 @@ class SpaRepository {
     }
 
     // --- DANH SÁCH KHÁCH HÀNG (CRM) ---
-    private val _clients = MutableStateFlow(
-        listOf(
+    private val demoClients = listOf(
             Client(
                 id = "KH-8829",
                 fullName = "Nguyễn Thu Hà",
@@ -346,6 +356,9 @@ class SpaRepository {
                 beforeAfterComparisons = emptyList()
             )
         )
+
+    private val _clients = MutableStateFlow(
+        if (_isRealUsageMode.value) emptyList() else demoClients
     )
     val clients: Flow<List<Client>> = _clients.asStateFlow()
 
@@ -465,8 +478,7 @@ class SpaRepository {
 
 
     // --- QUẢN LÝ LỊCH HẸN (CALENDAR) ---
-    private val _appointments = MutableStateFlow(
-        listOf(
+    private val demoAppointments = listOf(
             Appointment(
                 id = "APT-101",
                 clientName = "Nguyễn Thu Hà",
@@ -543,6 +555,9 @@ class SpaRepository {
                 reminderSent = true
             )
         )
+
+    private val _appointments = MutableStateFlow(
+        if (_isRealUsageMode.value) emptyList() else demoAppointments
     )
     val appointments: Flow<List<Appointment>> = _appointments.asStateFlow()
 
@@ -575,9 +590,8 @@ class SpaRepository {
     }
 
     // --- LỊCH SỬ GIAO DỊCH & HÓA ĐƠN ---
-    private val _transactions = MutableStateFlow(
-        listOf(
-            InvoiceTransactionRecord(
+    private val demoTransactions = listOf(
+        InvoiceTransactionRecord(
                 id = "TX-01",
                 invoiceCode = "SPA8829",
                 clientName = "Nguyễn Thu Hà",
@@ -643,11 +657,37 @@ class SpaRepository {
                 isPaid = false
             )
         )
+
+    private val _transactions = MutableStateFlow(
+        if (_isRealUsageMode.value) emptyList() else demoTransactions
     )
     val transactions: Flow<List<InvoiceTransactionRecord>> = _transactions.asStateFlow()
 
     fun getTransactionsForDate(dateStr: String): List<InvoiceTransactionRecord> {
         return _transactions.value.filter { it.date == dateStr }
+    }
+
+    /**
+     * Bắt đầu sử dụng thực tế: Xóa toàn bộ dữ liệu mẫu (khách hàng, lịch hẹn, giao dịch)
+     */
+    fun startRealUsage() {
+        prefs?.edit()?.putBoolean("key_is_real_usage", true)?.apply()
+        _isRealUsageMode.value = true
+        _clients.value = emptyList()
+        _selectedClientId.value = null
+        _appointments.value = emptyList()
+        _transactions.value = emptyList()
+    }
+
+    /**
+     * Khôi phục dữ liệu mẫu thử nghiệm ban đầu
+     */
+    fun restoreDemoData() {
+        prefs?.edit()?.putBoolean("key_is_real_usage", false)?.apply()
+        _isRealUsageMode.value = false
+        _clients.value = demoClients
+        _appointments.value = demoAppointments
+        _transactions.value = demoTransactions
     }
 
     // --- THU NGÂN & TẠO MÃ VIETQR (LẤY TÀI KHOẢN TỪ STORE PROFILE) ---
@@ -809,35 +849,52 @@ class SpaRepository {
     fun getMetricsForDate(dateStr: String): DashboardMetrics {
         val dayAppts = _appointments.value.filter { it.date == dateStr }
         val bookingCount = dayAppts.size
-        val dayRevenue = if (dayAppts.isEmpty()) {
-            0L
+        val dayTxs = _transactions.value.filter { it.date == dateStr && it.isPaid }
+
+        val dayRevenue = if (_isRealUsageMode.value) {
+            if (dayTxs.isNotEmpty()) dayTxs.sumOf { it.amount }
+            else dayAppts.filter { it.status == AppointmentStatus.COMPLETED }.sumOf { it.price }
         } else {
-            dayAppts.sumOf { it.price } + 8200000L // Doanh số dịch vụ + sản phẩm mỹ phẩm bán kèm trong ngày
+            if (dayAppts.isEmpty()) 0L else dayAppts.sumOf { it.price } + 8200000L
         }
+
+        val totalPaidRevenue = _transactions.value.filter { it.isPaid }.sumOf { it.amount }
 
         return DashboardMetrics(
             todayRevenue = dayRevenue,
             todayGrowthPercent = if (dayRevenue > 0) 14.8f else 0f,
-            weekRevenue = 112400000L,
-            monthRevenue = 465800000L,
+            weekRevenue = if (_isRealUsageMode.value) totalPaidRevenue else 112400000L,
+            monthRevenue = if (_isRealUsageMode.value) totalPaidRevenue else 465800000L,
             totalBookingsToday = bookingCount,
             roomOccupancyRate = if (bookingCount > 0) (bookingCount * 17.5f).coerceAtMost(100f) else 0f,
-            topServices = listOf(
-                TopServiceMetric("Liệu Trình Căng Bóng Whitening Facial", 42, 63000000L, 38f),
-                TopServiceMetric("Gội Đầu Dưỡng Sinh Thảo Dược", 68, 27200000L, 22f),
-                TopServiceMetric("Triệt Lông Công Nghệ Diode Laser", 28, 42000000L, 25f),
-                TopServiceMetric("Massage Body Đá Nóng Himalaya", 18, 15300000L, 15f)
-            ),
-            revenueDistribution = RevenueDistribution(
-                treatmentPackages = 265000000L,
-                singleServices = 120800000L,
-                retailProducts = 80000000L
-            ),
-            topPerformers = listOf(
-                StaffPerformance("ST-01", "Thảo My", "Chuyên Viên Trị Liệu", 46, 32500000L, 4.95f),
-                StaffPerformance("ST-02", "Hương Giang", "Kỹ Thuật Viên Dưỡng Sinh", 52, 24800000L, 4.90f),
-                StaffPerformance("ST-03", "Lan Phương", "Chuyên Viên Laser & Phục Hồi", 38, 28100000L, 4.88f)
-            )
+            topServices = if (_isRealUsageMode.value && dayAppts.isEmpty() && dayTxs.isEmpty()) {
+                emptyList()
+            } else {
+                listOf(
+                    TopServiceMetric("Liệu Trình Căng Bóng Whitening Facial", 42, 63000000L, 38f),
+                    TopServiceMetric("Gội Đầu Dưỡng Sinh Thảo Dược", 68, 27200000L, 22f),
+                    TopServiceMetric("Triệt Lông Công Nghệ Diode Laser", 28, 42000000L, 25f),
+                    TopServiceMetric("Massage Body Đá Nóng Himalaya", 18, 15300000L, 15f)
+                )
+            },
+            revenueDistribution = if (_isRealUsageMode.value && totalPaidRevenue == 0L && dayRevenue == 0L) {
+                RevenueDistribution(0L, 0L, 0L)
+            } else {
+                RevenueDistribution(
+                    treatmentPackages = 265000000L,
+                    singleServices = 120800000L,
+                    retailProducts = 80000000L
+                )
+            },
+            topPerformers = if (_isRealUsageMode.value && dayAppts.isEmpty() && dayTxs.isEmpty()) {
+                emptyList()
+            } else {
+                listOf(
+                    StaffPerformance("ST-01", "Thảo My", "Chuyên Viên Trị Liệu", 46, 32500000L, 4.95f),
+                    StaffPerformance("ST-02", "Hương Giang", "Kỹ Thuật Viên Dưỡng Sinh", 52, 24800000L, 4.90f),
+                    StaffPerformance("ST-03", "Lan Phương", "Chuyên Viên Laser & Phục Hồi", 38, 28100000L, 4.88f)
+                )
+            }
         )
     }
 }

@@ -39,12 +39,13 @@ enum class SpaNavDestination(
 
 @Composable
 fun SpaMainApp(
-    repository: SpaRepository = remember { SpaRepository() }
+    repository: SpaRepository? = null
 ) {
     var currentDestination by remember { mutableStateOf(SpaNavDestination.CALENDAR) }
     var checkoutFromAppointment by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
+    val repository = repository ?: remember { SpaRepository(context) }
     val licenseManager = remember { LicenseManager.getInstance(context) }
     var licenseStatus by remember { mutableStateOf(licenseManager.getLicenseStatus()) }
 
@@ -52,6 +53,7 @@ fun SpaMainApp(
         licenseStatus = licenseManager.getLicenseStatus()
     }
 
+    val isRealUsageMode by repository.isRealUsageMode.collectAsState(initial = false)
     val clients by repository.clients.collectAsState(initial = emptyList())
     val selectedClientId by repository.selectedClientId.collectAsState(initial = null)
     val appointments by repository.appointments.collectAsState(initial = emptyList())
@@ -257,6 +259,13 @@ fun SpaMainApp(
                     storeProfile = storeProfile,
                     catalogPackages = catalogPackages,
                     technicians = technicians,
+                    isRealUsageMode = isRealUsageMode,
+                    onStartRealUsage = {
+                        repository.startRealUsage()
+                    },
+                    onRestoreDemoData = {
+                        repository.restoreDemoData()
+                    },
                     onUpdateStoreProfile = { updated ->
                         repository.updateStoreProfile(updated)
                     },

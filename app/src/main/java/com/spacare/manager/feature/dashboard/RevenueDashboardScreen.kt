@@ -348,157 +348,7 @@ fun RevenueDashboardScreen(
                 }
             }
 
-            // 4. Dịch vụ bán chạy nhất
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Top Dịch Vụ Được Đặt Nhiều Nhất",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = CharcoalTextPrimary
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        metrics.topServices.forEachIndexed { index, service ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Surface(
-                                    modifier = Modifier.size(26.dp),
-                                    shape = CircleShape,
-                                    color = if (index == 0) SpaGoldContainer else WarmBeigeSurfaceVariant
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(
-                                            text = "${index + 1}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (index == 0) SpaGoldPrimary else CharcoalTextSecondary
-                                        )
-                                    }
-                                }
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = service.serviceName,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = CharcoalTextPrimary
-                                    )
-                                    Text(
-                                        text = "${service.bookingCount} lượt phục vụ",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = CharcoalTextMuted
-                                    )
-                                }
-
-                                Text(
-                                    text = "${currencyFormatter.format(service.totalRevenue)} đ",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = SageGreenPrimary
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 5. Hiệu suất Kỹ thuật viên
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Hiệu Suất Kỹ Thuật Viên Nổi Bật",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = CharcoalTextPrimary
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        metrics.topPerformers.forEach { staff ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(SageGreenContainer),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = staff.staffName.split(" ").last().take(1),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SageGreenPrimary
-                                    )
-                                }
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = staff.staffName,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = CharcoalTextPrimary
-                                    )
-                                    Text(
-                                        text = "${staff.role} • ${staff.totalCustomersServed} khách",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = CharcoalTextMuted
-                                    )
-                                }
-
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text(
-                                        text = "${currencyFormatter.format(staff.revenueGenerated)} đ",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = CharcoalTextPrimary
-                                    )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = Icons.Default.Star,
-                                            contentDescription = null,
-                                            tint = SpaGoldPrimary,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                        Text(
-                                            text = " ${staff.rating}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = SpaGoldPrimary
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 6. Lịch sử hóa đơn & Giao dịch hôm nay
+            // 4. Lịch sử hóa đơn & Giao dịch hôm nay (ngay bên dưới Tỷ Trọng Nguồn Thu)
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -648,6 +498,156 @@ fun RevenueDashboardScreen(
                                                 }
                                             }
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 5. Dịch vụ bán chạy nhất
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Top Dịch Vụ Được Đặt Nhiều Nhất",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = CharcoalTextPrimary
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        metrics.topServices.forEachIndexed { index, service ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(26.dp),
+                                    shape = CircleShape,
+                                    color = if (index == 0) SpaGoldContainer else WarmBeigeSurfaceVariant
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = "${index + 1}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (index == 0) SpaGoldPrimary else CharcoalTextSecondary
+                                        )
+                                    }
+                                }
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = service.serviceName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = CharcoalTextPrimary
+                                    )
+                                    Text(
+                                        text = "${service.bookingCount} lượt phục vụ",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextMuted
+                                    )
+                                }
+
+                                Text(
+                                    text = "${currencyFormatter.format(service.totalRevenue)} đ",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SageGreenPrimary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 6. Hiệu suất Kỹ thuật viên
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Hiệu Suất Kỹ Thuật Viên Nổi Bật",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = CharcoalTextPrimary
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        metrics.topPerformers.forEach { staff ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(SageGreenContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = staff.staffName.split(" ").last().take(1),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SageGreenPrimary
+                                    )
+                                }
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = staff.staffName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CharcoalTextPrimary
+                                    )
+                                    Text(
+                                        text = "${staff.role} • ${staff.totalCustomersServed} khách",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextMuted
+                                    )
+                                }
+
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = "${currencyFormatter.format(staff.revenueGenerated)} đ",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = CharcoalTextPrimary
+                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = null,
+                                            tint = SpaGoldPrimary,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Text(
+                                            text = " ${staff.rating}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = SpaGoldPrimary
+                                        )
                                     }
                                 }
                             }

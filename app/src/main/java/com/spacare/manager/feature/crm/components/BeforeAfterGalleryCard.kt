@@ -288,6 +288,7 @@ fun SessionPhotoProgressionCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -305,20 +306,26 @@ fun SessionPhotoProgressionCard(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Ảnh Tiến Trình Từng Buổi",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = CharcoalTextPrimary
+                            color = CharcoalTextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "Lướt ngang để theo dõi thay đổi qua từng buổi",
+                            text = "Lướt ngang theo dõi thay đổi",
                             style = MaterialTheme.typography.bodySmall,
-                            color = CharcoalTextSecondary
+                            color = CharcoalTextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Button(
                     onClick = onAddPhotoClick,
@@ -326,11 +333,24 @@ fun SessionPhotoProgressionCard(
                         containerColor = SageGreenPrimary,
                         contentColor = Color.White
                     ),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
+                    Icon(
+                        imageVector = Icons.Default.AddAPhoto,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp),
+                        tint = Color.White
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Thêm ảnh", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "Thêm ảnh",
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             }
 
@@ -377,9 +397,7 @@ fun SessionPhotoProgressionCard(
                 ) {
                     items(photos, key = { it.id }) { photo ->
                         Card(
-                            modifier = Modifier
-                                .width(220.dp)
-                                .fillMaxHeight(),
+                            modifier = Modifier.width(200.dp),
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(containerColor = WarmBeigeSurfaceVariant),
                             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -413,11 +431,11 @@ fun SessionPhotoProgressionCard(
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                // Ảnh buổi trị liệu
+                                // Ảnh buổi trị liệu theo khung dọc 3:4 chuẩn
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(150.dp)
+                                        .aspectRatio(3f / 4f)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(Color.LightGray)
                                 ) {
@@ -441,6 +459,7 @@ fun SessionPhotoProgressionCard(
                                 )
 
                                 if (photo.notes.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = photo.notes,
                                         style = MaterialTheme.typography.bodySmall,
@@ -456,14 +475,27 @@ fun SessionPhotoProgressionCard(
                                 // Nút Chụp lại / Đổi ảnh cho buổi này
                                 OutlinedButton(
                                     onClick = { onRetakePhotoClick(photo) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentPadding = PaddingValues(vertical = 4.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(36.dp),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                                     shape = RoundedCornerShape(8.dp),
                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = SageGreenPrimary)
                                 ) {
-                                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(13.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.CameraAlt,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(15.dp),
+                                        tint = SageGreenPrimary
+                                    )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Chụp lại / Đổi ảnh", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        text = "Chụp lại / Đổi ảnh",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
                                 }
                             }
                         }
@@ -474,7 +506,7 @@ fun SessionPhotoProgressionCard(
                         Surface(
                             modifier = Modifier
                                 .width(120.dp)
-                                .height(270.dp)
+                                .height(340.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .border(1.dp, SageGreenPrimary.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                                 .clickable(onClick = onAddPhotoClick),
@@ -569,25 +601,31 @@ fun TakeOrUploadPhotoDialog(
                     .verticalScroll(androidx.compose.foundation.rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Khung ảnh xem trước
+                // Khung ảnh xem trước theo khung dọc 3:4
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(WarmBeigeSurfaceVariant)
-                        .border(1.dp, WarmBeigeBorder, RoundedCornerShape(12.dp)),
+                        .fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (imageUrl.isNotBlank()) {
-                        AsyncImage(
-                            model = imageUrl,
-                            contentDescription = "Xem trước ảnh",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Text("Chưa chọn ảnh", color = CharcoalTextMuted)
+                    Box(
+                        modifier = Modifier
+                            .width(180.dp)
+                            .aspectRatio(3f / 4f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(WarmBeigeSurfaceVariant)
+                            .border(1.dp, WarmBeigeBorder, RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (imageUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = imageUrl,
+                                contentDescription = "Xem trước ảnh",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text("Chưa chọn ảnh", color = CharcoalTextMuted)
+                        }
                     }
                 }
 
