@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.spacare.manager.core.designsystem.theme.*
@@ -168,11 +169,14 @@ fun ClientProfileScreen(
                                 onClick = onBookAppointmentClick,
                                 modifier = Modifier.weight(1f),
                                 shape = MaterialTheme.shapes.small,
-                                colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = SageGreenPrimary,
+                                    contentColor = Color.White
+                                )
                             ) {
-                                Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Đặt lịch mới", style = MaterialTheme.typography.labelMedium)
+                                Text("Đặt lịch mới", style = MaterialTheme.typography.labelMedium, color = Color.White, fontWeight = FontWeight.Bold)
                             }
 
                             OutlinedButton(
@@ -501,9 +505,12 @@ fun ClientProfileScreen(
                         onAddTreatmentPackage(newPackage)
                         showAddPackageDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SageGreenPrimary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text("Lưu gói")
+                    Text("Lưu gói", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -556,9 +563,12 @@ fun ClientProfileScreen(
                         onAddBeforeAfter(record)
                         showAddBeforeAfterDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SageGreenPrimary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text("Thêm so sánh")
+                    Text("Thêm so sánh", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {

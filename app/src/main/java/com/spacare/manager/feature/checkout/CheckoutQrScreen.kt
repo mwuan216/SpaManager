@@ -382,12 +382,24 @@ fun CheckoutQrScreen(
                                                 storeTransactionRef = "CK-${System.currentTimeMillis().toString().takeLast(6)}"
                                                 Toast.makeText(context, "Đã ghi nhận thanh toán thành công!", Toast.LENGTH_SHORT).show()
                                             },
-                                            colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = SageGreenPrimary,
+                                                contentColor = Color.White
+                                            ),
                                             modifier = Modifier.weight(1f)
                                         ) {
-                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = Color.White
+                                            )
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Xác nhận đã nhận tiền", fontWeight = FontWeight.Bold)
+                                            Text(
+                                                "Xác nhận đã nhận tiền",
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Bold
+                                            )
                                         }
                                     }
                                 }
@@ -555,12 +567,24 @@ fun CheckoutQrScreen(
                                             onConfirmPayment()
                                             Toast.makeText(context, "Đã xác nhận thanh toán hóa đơn #${invoice.invoiceCode}", Toast.LENGTH_SHORT).show()
                                         },
-                                        colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = SageGreenPrimary,
+                                            contentColor = Color.White
+                                        ),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = Color.White
+                                        )
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Xác nhận đã thanh toán", fontWeight = FontWeight.Bold)
+                                        Text(
+                                            "Xác nhận đã thanh toán",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
                             }

@@ -209,6 +209,7 @@ fun CalendarSchedulerScreen(
                                 selectedDateStr = day.fullDate
                             },
                         color = if (isSelected) SageGreenPrimary else WarmBeigeSurface,
+                        contentColor = if (isSelected) Color.White else CharcoalTextPrimary,
                         border = if (!isSelected) androidx.compose.foundation.BorderStroke(1.dp, WarmBeigeBorder) else null,
                         shape = RoundedCornerShape(14.dp)
                     ) {
@@ -220,15 +221,15 @@ fun CalendarSchedulerScreen(
                             Text(
                                 text = day.dayOfWeek,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (isSelected) WarmBeigeSurface else CharcoalTextSecondary,
-                                fontWeight = FontWeight.Medium
+                                color = if (isSelected) Color.White.copy(alpha = 0.95f) else CharcoalTextSecondary,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = day.dayNumber,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isSelected) WarmBeigeSurface else CharcoalTextPrimary
+                                color = if (isSelected) Color.White else CharcoalTextPrimary
                             )
                         }
                     }
@@ -382,18 +383,43 @@ fun CalendarSchedulerScreen(
                         }
                         showCalendarDatePicker = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SageGreenPrimary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text("Chọn ngày")
+                    Text("Chọn ngày", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 OutlinedButton(onClick = { showCalendarDatePicker = false }) {
-                    Text("Hủy")
+                    Text("Hủy", color = CharcoalTextSecondary)
                 }
-            }
+            },
+            colors = DatePickerDefaults.colors(
+                containerColor = WarmBeigeSurface
+            )
         ) {
-            DatePicker(state = datePickerState)
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    containerColor = WarmBeigeSurface,
+                    titleContentColor = CharcoalTextPrimary,
+                    headlineContentColor = SageGreenPrimary,
+                    weekdayContentColor = CharcoalTextSecondary,
+                    subheadContentColor = CharcoalTextPrimary,
+                    yearContentColor = CharcoalTextPrimary,
+                    currentYearContentColor = SageGreenPrimary,
+                    selectedYearContainerColor = SageGreenPrimary,
+                    selectedYearContentColor = Color.White,
+                    dayContentColor = CharcoalTextPrimary,
+                    disabledDayContentColor = CharcoalTextMuted,
+                    selectedDayContainerColor = SageGreenPrimary,
+                    selectedDayContentColor = Color.White,
+                    todayDateBorderColor = SageGreenPrimary,
+                    todayContentColor = SageGreenPrimary
+                )
+            )
         }
     }
 
@@ -805,10 +831,13 @@ fun CreateAppointmentDialog(
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SageGreenPrimary,
+                            contentColor = Color.White
+                        ),
                         enabled = clientName.isNotBlank() && clientPhone.isNotBlank()
                     ) {
-                        Text("Lưu lịch hẹn")
+                        Text("Lưu lịch hẹn", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -841,18 +870,43 @@ fun CreateAppointmentDialog(
                         }
                         showDatePickerDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SageGreenPrimary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text("Xác nhận")
+                    Text("Xác nhận", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 OutlinedButton(onClick = { showDatePickerDialog = false }) {
-                    Text("Hủy")
+                    Text("Hủy", color = CharcoalTextSecondary)
                 }
-            }
+            },
+            colors = DatePickerDefaults.colors(
+                containerColor = WarmBeigeSurface
+            )
         ) {
-            DatePicker(state = datePickerState)
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    containerColor = WarmBeigeSurface,
+                    titleContentColor = CharcoalTextPrimary,
+                    headlineContentColor = SageGreenPrimary,
+                    weekdayContentColor = CharcoalTextSecondary,
+                    subheadContentColor = CharcoalTextPrimary,
+                    yearContentColor = CharcoalTextPrimary,
+                    currentYearContentColor = SageGreenPrimary,
+                    selectedYearContainerColor = SageGreenPrimary,
+                    selectedYearContentColor = Color.White,
+                    dayContentColor = CharcoalTextPrimary,
+                    disabledDayContentColor = CharcoalTextMuted,
+                    selectedDayContainerColor = SageGreenPrimary,
+                    selectedDayContentColor = Color.White,
+                    todayDateBorderColor = SageGreenPrimary,
+                    todayContentColor = SageGreenPrimary
+                )
+            )
         }
     }
 }

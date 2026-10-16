@@ -522,18 +522,43 @@ fun RevenueDashboardScreen(
                         }
                         showDatePickerDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SageGreenPrimary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text("Xem báo cáo")
+                    Text("Xem báo cáo", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 OutlinedButton(onClick = { showDatePickerDialog = false }) {
-                    Text("Hủy")
+                    Text("Hủy", color = CharcoalTextSecondary)
                 }
-            }
+            },
+            colors = DatePickerDefaults.colors(
+                containerColor = WarmBeigeSurface
+            )
         ) {
-            DatePicker(state = datePickerState)
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    containerColor = WarmBeigeSurface,
+                    titleContentColor = CharcoalTextPrimary,
+                    headlineContentColor = SageGreenPrimary,
+                    weekdayContentColor = CharcoalTextSecondary,
+                    subheadContentColor = CharcoalTextPrimary,
+                    yearContentColor = CharcoalTextPrimary,
+                    currentYearContentColor = SageGreenPrimary,
+                    selectedYearContainerColor = SageGreenPrimary,
+                    selectedYearContentColor = Color.White,
+                    dayContentColor = CharcoalTextPrimary,
+                    disabledDayContentColor = CharcoalTextMuted,
+                    selectedDayContainerColor = SageGreenPrimary,
+                    selectedDayContentColor = Color.White,
+                    todayDateBorderColor = SageGreenPrimary,
+                    todayContentColor = SageGreenPrimary
+                )
+            )
         }
     }
 

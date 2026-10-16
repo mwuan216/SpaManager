@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -239,10 +240,17 @@ fun ClientFormDialog(
                         },
                         modifier = Modifier.weight(1f),
                         shape = MaterialTheme.shapes.small,
-                        colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SageGreenPrimary,
+                            contentColor = Color.White
+                        ),
                         enabled = fullName.isNotBlank() && phone.isNotBlank()
                     ) {
-                        Text(if (isEdit) "Cập nhật" else "Lưu hồ sơ")
+                        Text(
+                            text = if (isEdit) "Cập nhật" else "Lưu hồ sơ",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
