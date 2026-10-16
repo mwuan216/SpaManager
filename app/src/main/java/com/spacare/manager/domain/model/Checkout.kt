@@ -22,14 +22,30 @@ data class OrderItem(
     val totalPrice: Long get() = quantity * unitPrice
 }
 
+data class BankOption(
+    val bin: String,
+    val shortName: String,
+    val fullName: String
+)
+
+val SupportedBanks = listOf(
+    BankOption("970422", "MBBank", "Ngân hàng Quân Đội"),
+    BankOption("970436", "Vietcombank", "Ngân hàng Ngoại Thương Việt Nam"),
+    BankOption("970407", "Techcombank", "Ngân hàng Kỹ Thương"),
+    BankOption("970432", "VPBank", "Ngân hàng Việt Nam Thịnh Vượng"),
+    BankOption("970416", "ACB", "Ngân hàng Á Châu"),
+    BankOption("970418", "BIDV", "Ngân hàng Đầu tư và Phát triển"),
+    BankOption("970458", "TPBank", "Ngân hàng Tiên Phong")
+)
+
 data class VietQrInfo(
-    val bankId: String = "970422", // MBBank BIN code
+    val bankId: String = "970422", // Default MBBank BIN
     val bankShortName: String = "MBBank",
     val accountNumber: String = "0888999888",
     val accountHolder: String = "SPA CARE WELLNESS CENTER",
     val amount: Long,
     val referenceCode: String,
-    val description: String
+    val description: String = ""
 ) {
     // URL chuẩn VietQR Quicklink tiện lợi & tương thích mọi app ngân hàng Việt Nam
     val qrImageUrl: String
@@ -46,16 +62,22 @@ data class CheckoutInvoice(
     val tipAmount: Long = 0,
     val paymentStatus: PaymentStatus = PaymentStatus.WAITING_FOR_PAYMENT,
     val transactionRef: String? = null,
-    val paidAt: String? = null
+    val paidAt: String? = null,
+    val selectedBank: BankOption = SupportedBanks[0],
+    val accountNumber: String = "0888999888",
+    val accountHolder: String = "SPA CARE WELLNESS CENTER"
 ) {
     val subtotal: Long get() = items.sumOf { it.totalPrice }
     val finalTotal: Long get() = (subtotal - discountAmount + tipAmount).coerceAtLeast(0)
 
     val vietQrInfo: VietQrInfo
         get() = VietQrInfo(
+            bankId = selectedBank.bin,
+            bankShortName = selectedBank.shortName,
+            accountNumber = accountNumber,
+            accountHolder = accountHolder,
             amount = finalTotal,
             referenceCode = invoiceCode,
             description = "Thanh toan hoa don $invoiceCode"
         )
 }
-

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,21 +16,31 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.spacare.manager.core.designsystem.theme.*
-import com.spacare.manager.domain.model.Client
-import com.spacare.manager.domain.model.VipTier
+import com.spacare.manager.domain.model.*
 import com.spacare.manager.feature.crm.components.AllergyAlertCard
 import com.spacare.manager.feature.crm.components.BeforeAfterGalleryCard
+import com.spacare.manager.feature.crm.components.ClientFormDialog
 import com.spacare.manager.feature.crm.components.TreatmentPackageCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientProfileScreen(
     client: Client,
-    onBackClick: () -> Unit = {},
-    onBookAppointmentClick: () -> Unit = {},
-    onCheckoutClick: () -> Unit = {},
+    onBackClick: () -> Unit,
+    onBookAppointmentClick: () -> Unit,
+    onCheckoutClick: () -> Unit,
+    onUpdateClient: (Client) -> Unit,
+    onDeleteClient: (String) -> Unit,
+    onCheckInSession: (packageId: String) -> Unit,
+    onAddTreatmentPackage: (TreatmentPackage) -> Unit,
+    onAddBeforeAfter: (BeforeAfterComparison) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showAddPackageDialog by remember { mutableStateOf(false) }
+    var showAddBeforeAfterDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -41,15 +53,15 @@ fun ClientProfileScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Quay lại")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
                 },
                 actions = {
-                    IconButton(onClick = {}) {
+                    IconButton(onClick = { showEditDialog = true }) {
                         Icon(imageVector = Icons.Default.Edit, contentDescription = "Chỉnh sửa")
                     }
-                    IconButton(onClick = {}) {
-                        Icon(imageVector = Icons.Default.MoreVert, contentDescription = "Tùy chọn")
+                    IconButton(onClick = { showDeleteConfirmDialog = true }) {
+                        Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Xóa", tint = AllergyAlertRed)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -81,7 +93,6 @@ fun ClientProfileScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            // Avatar tròn thanh lịch
                             Box(
                                 modifier = Modifier
                                     .size(64.dp)
@@ -110,8 +121,14 @@ fun ClientProfileScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = CharcoalTextSecondary
                                 )
+                                if (client.email.isNotBlank()) {
+                                    Text(
+                                        text = client.email,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextMuted
+                                    )
+                                }
                                 Spacer(modifier = Modifier.height(6.dp))
-                                // VIP Chip
                                 Surface(
                                     color = SpaGoldContainer,
                                     shape = CircleShape
@@ -142,7 +159,7 @@ fun ClientProfileScreen(
                         HorizontalDivider(color = WarmBeigeBorder)
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Nút liên lạc nhanh (Call / Zalo / Đặt lịch)
+                        // Nút hành động nhanh
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -164,7 +181,7 @@ fun ClientProfileScreen(
                                 shape = MaterialTheme.shapes.small,
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = SageGreenPrimary)
                             ) {
-                                Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Thanh toán", style = MaterialTheme.typography.labelMedium)
                             }
@@ -173,12 +190,14 @@ fun ClientProfileScreen(
                 }
             }
 
-            // 2. Thẻ Cảnh báo dị ứng & Chống chỉ định (Allergy Alert)
-            item {
-                AllergyAlertCard(
-                    allergies = client.allergyAlerts,
-                    contraindications = client.contraindications
-                )
+            // 2. Thẻ Cảnh báo dị ứng & Chống chỉ định
+            if (client.allergyAlerts.isNotEmpty() || client.contraindications.isNotEmpty()) {
+                item {
+                    AllergyAlertCard(
+                        allergies = client.allergyAlerts,
+                        contraindications = client.contraindications
+                    )
+                }
             }
 
             // 3. Tình trạng da & Ghi chú da liễu
@@ -223,104 +242,170 @@ fun ClientProfileScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = client.skinConditionNotes,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = CharcoalTextSecondary
-                        )
+                        if (client.skinConditionNotes.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = client.skinConditionNotes,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = CharcoalTextSecondary
+                            )
+                        }
                     }
                 }
             }
 
-            // 4. Theo dõi gói dịch vụ (Package Tracking - Remaining Sessions Counter)
+            // 4. Gói liệu trình đang sử dụng (Package Tracking)
             item {
-                Text(
-                    text = "Gói Liệu Trình Đang Sử Dụng",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = CharcoalTextPrimary
-                )
-            }
-
-            items(client.treatmentPackages.size) { index ->
-                TreatmentPackageCard(pkg = client.treatmentPackages[index])
-            }
-
-            // 5. Thư viện Before & After (Side-by-Side Photo Comparison)
-            item {
-                Text(
-                    text = "Hồ Sơ Hình Ảnh Trước & Sau",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = CharcoalTextPrimary
-                )
-            }
-
-            items(client.beforeAfterComparisons.size) { index ->
-                BeforeAfterGalleryCard(comparison = client.beforeAfterComparisons[index])
-            }
-
-            // 6. Lịch sử sử dụng dịch vụ (Service History)
-            item {
-                Text(
-                    text = "Lịch Sử Sử Dụng Dịch Vụ",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = CharcoalTextPrimary
-                )
-            }
-
-            items(client.serviceHistory.size) { index ->
-                val record = client.serviceHistory[index]
-                Card(
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = record.date,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SageGreenPrimary,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = record.room,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = CharcoalTextMuted
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Gói Liệu Trình Đang Sử Dụng",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = CharcoalTextPrimary
+                    )
+                    TextButton(onClick = { showAddPackageDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Thêm gói", color = SageGreenPrimary)
+                    }
+                }
+            }
+
+            if (client.treatmentPackages.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = CardDefaults.cardColors(containerColor = WarmBeigeSurfaceVariant)
+                    ) {
                         Text(
-                            text = record.serviceName,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = CharcoalTextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "KTV: ${record.technicianName}",
+                            text = "Khách hàng chưa đăng ký gói liệu trình nào.",
+                            modifier = Modifier.padding(16.dp),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = CharcoalTextSecondary
+                            color = CharcoalTextMuted
                         )
-                        if (record.feedback != null) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Surface(
-                                color = WarmBeigeSurfaceVariant,
-                                shape = MaterialTheme.shapes.small
+                    }
+                }
+            } else {
+                items(client.treatmentPackages.size) { index ->
+                    val pkg = client.treatmentPackages[index]
+                    TreatmentPackageCard(
+                        pkg = pkg,
+                        onUseSessionClick = {
+                            onCheckInSession(pkg.id)
+                        }
+                    )
+                }
+            }
+
+            // 5. Thư viện Before & After
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Hồ Sơ Hình Ảnh Trước & Sau",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = CharcoalTextPrimary
+                    )
+                    TextButton(onClick = { showAddBeforeAfterDialog = true }) {
+                        Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Thêm ảnh", color = SageGreenPrimary)
+                    }
+                }
+            }
+
+            if (client.beforeAfterComparisons.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = CardDefaults.cardColors(containerColor = WarmBeigeSurfaceVariant)
+                    ) {
+                        Text(
+                            text = "Chưa có hình ảnh so sánh trước & sau cho khách hàng này.",
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = CharcoalTextMuted
+                        )
+                    }
+                }
+            } else {
+                items(client.beforeAfterComparisons.size) { index ->
+                    BeforeAfterGalleryCard(comparison = client.beforeAfterComparisons[index])
+                }
+            }
+
+            // 6. Lịch sử sử dụng dịch vụ
+            if (client.serviceHistory.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "Lịch Sử Sử Dụng Dịch Vụ",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = CharcoalTextPrimary
+                    )
+                }
+
+                items(client.serviceHistory.size) { index ->
+                    val record = client.serviceHistory[index]
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "“${record.feedback}”",
-                                    modifier = Modifier.padding(8.dp),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = CharcoalTextSecondary
+                                    text = record.date,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SageGreenPrimary,
+                                    fontWeight = FontWeight.SemiBold
                                 )
+                                Text(
+                                    text = record.room,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = CharcoalTextMuted
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = record.serviceName,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = CharcoalTextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "KTV: ${record.technicianName}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = CharcoalTextSecondary
+                            )
+                            if (record.feedback != null) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Surface(
+                                    color = WarmBeigeSurfaceVariant,
+                                    shape = MaterialTheme.shapes.small
+                                ) {
+                                    Text(
+                                        text = "“${record.feedback}”",
+                                        modifier = Modifier.padding(8.dp),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextSecondary
+                                    )
+                                }
                             }
                         }
                     }
@@ -328,5 +413,159 @@ fun ClientProfileScreen(
             }
         }
     }
-}
 
+    // Dialog Sửa khách hàng
+    if (showEditDialog) {
+        ClientFormDialog(
+            initialClient = client,
+            onDismissRequest = { showEditDialog = false },
+            onSaveClient = { updatedClient ->
+                onUpdateClient(updatedClient)
+                showEditDialog = false
+            }
+        )
+    }
+
+    // Dialog Xác nhận Xóa khách hàng
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text("Xác nhận xóa hồ sơ") },
+            text = { Text("Bạn có chắc chắn muốn xóa khách hàng \"${client.fullName}\"? Thao tác này không thể hoàn tác.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteClient(client.id)
+                        showDeleteConfirmDialog = false
+                        onBackClick()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AllergyAlertRed)
+                ) {
+                    Text("Xóa vĩnh viễn")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+
+    // Dialog Thêm gói liệu trình mới
+    if (showAddPackageDialog) {
+        var pkgName by remember { mutableStateOf("") }
+        var totalSessions by remember { mutableStateOf("10") }
+        var therapist by remember { mutableStateOf("KTV. Thảo My") }
+
+        AlertDialog(
+            onDismissRequest = { showAddPackageDialog = false },
+            title = { Text("Thêm Gói Liệu Trình Mới") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = pkgName,
+                        onValueChange = { pkgName = it },
+                        label = { Text("Tên gói liệu trình") },
+                        placeholder = { Text("Vd: Căng bóng da Whitening Facial") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = totalSessions,
+                        onValueChange = { totalSessions = it },
+                        label = { Text("Tổng số buổi") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = therapist,
+                        onValueChange = { therapist = it },
+                        label = { Text("KTV phụ trách") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val sessions = totalSessions.toIntOrNull() ?: 10
+                        val newPackage = TreatmentPackage(
+                            id = "PKG-" + (1000..9999).random(),
+                            name = pkgName.ifBlank { "Liệu Trình Chuyên Sâu Spa" },
+                            totalSessions = sessions,
+                            usedSessions = 0,
+                            remainingSessions = sessions,
+                            startDate = "16/10/2026",
+                            expiryDate = "16/04/2027",
+                            assignedTherapist = therapist
+                        )
+                        onAddTreatmentPackage(newPackage)
+                        showAddPackageDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
+                ) {
+                    Text("Lưu gói")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showAddPackageDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+
+    // Dialog Thêm ảnh Before & After mới
+    if (showAddBeforeAfterDialog) {
+        var treatmentTitle by remember { mutableStateOf("Liệu Trình Chăm Sóc Da") }
+        var notes by remember { mutableStateOf("Cải thiện sắc tố da, giảm viêm đỏ rõ rệt.") }
+
+        AlertDialog(
+            onDismissRequest = { showAddBeforeAfterDialog = false },
+            title = { Text("Thêm Ảnh So Sánh Trước & Sau") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = treatmentTitle,
+                        onValueChange = { treatmentTitle = it },
+                        label = { Text("Tên liệu trình") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = notes,
+                        onValueChange = { notes = it },
+                        label = { Text("Đánh giá lâm sàng") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val record = BeforeAfterComparison(
+                            id = "BA-" + (1000..9999).random(),
+                            treatmentName = treatmentTitle,
+                            beforeDate = "16/10/2026 (Buổi 1)",
+                            afterDate = "16/11/2026 (Buổi 5)",
+                            beforeImageUrl = "https://images.unsplash.com/photo-1512290900672-1f55b9e59d4c?auto=format&fit=crop&w=600&q=80",
+                            afterImageUrl = "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=600&q=80",
+                            sessionMilestone = "Tiến độ: Buổi 1 ➔ Buổi 5",
+                            technicianName = "Chuyên viên Thảo My",
+                            clinicalNotes = notes
+                        )
+                        onAddBeforeAfter(record)
+                        showAddBeforeAfterDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
+                ) {
+                    Text("Thêm so sánh")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showAddBeforeAfterDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+}

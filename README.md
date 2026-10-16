@@ -13,15 +13,16 @@
 ## 🌟 Tính Năng Nổi Bật
 
 ### 1. 📇 Spa CRM & Quản Lý Liệu Trình Chuyên Sâu
-- **Hồ sơ khách hàng chuẩn y khoa:** Quản lý thông tin liên hệ, phân loại thành viên (VIP Gold, Diamond), phân loại da và bệnh lý biểu bì.
-- **Cảnh báo Dị ứng & Chống chỉ định:** Hiển thị trực quan cảnh báo đỏ (*Allergy Alert Card*) ngăn ngừa tuyệt đối việc dùng nhầm hoạt chất hoặc công nghệ máy gây kích ứng.
-- **Bộ đếm buổi liệu trình (Session Counter):** Theo dõi tiến độ các gói dịch vụ (ví dụ: *Gói 10 buổi Whitening Facial - Còn 3 buổi*), hỗ trợ điểm danh một chạm.
+- **Đầy đủ tính năng Thêm / Sửa / Xóa:** Hỗ trợ tạo hồ sơ khách hàng mới, cập nhật thông tin da liễu/dị ứng, và xóa hồ sơ với hộp thoại xác thực an toàn.
+- **Tìm kiếm & Bộ lọc thông minh:** Tìm nhanh theo tên, số điện thoại và lọc theo từng phân hạng (VIP Gold, Diamond, Silver, Thân thiết).
+- **Cảnh báo Dị ứng & Chống chỉ định:** Hiển thị trực quan cảnh báo đỏ (*Allergy Alert Card*) ngăn ngừa việc dùng nhầm hoạt chất hoặc công nghệ máy gây kích ứng.
+- **Bộ đếm buổi liệu trình (Session Counter):** Theo dõi tiến độ các gói dịch vụ (ví dụ: *Gói 10 buổi Whitening Facial - Còn 3 buổi*), hỗ trợ điểm danh một chạm trừ buổi tự động.
 - **Thư viện Before & After:** So sánh ảnh chụp trước và sau điều trị song song (*Side-by-Side*) theo mốc thời gian kèm nhận xét lâm sàng của chuyên viên.
 
-### 2. 💳 Thu Ngân Thông Minh & Dynamic VietQR
+### 2. 💳 Thu Ngân & Sinh Mã VietQR Nhanh Chóng
 - **Tự động sinh mã VietQR Napas 247:** Điền sẵn chính xác số tiền, số tài khoản và nội dung chuyển khoản tương thích hơn 40 app ngân hàng Việt Nam.
-- **Lắng nghe Webhook thời gian thực:** Màn hình lễ tân tự động cập nhật khi tiền vào tài khoản ngân hàng thông qua Server-Sent Events (SSE).
-- **Phản hồi xúc giác & âm thanh:** Hiệu ứng checkmark thành công, rung haptic và âm thanh báo nhận tiền tức thì.
+- **Linh hoạt chọn ngân hàng thụ hưởng:** Hỗ trợ chuyển đổi nhanh giữa MBBank, Vietcombank, Techcombank, VPBank, ACB, BIDV, TPBank hoặc tùy biến STK của Spa.
+- **Thao tác 1-chạm:** Sao chép STK, nội dung CK, xác nhận đã thanh toán và tạo hóa đơn mới cho khách tiếp theo.
 
 ### 3. 📅 Lịch Hẹn & Điều Phối Phòng Trị Liệu
 - **Lưới lịch hẹn đa chế độ:** Xem theo *Dòng thời gian (Timeline)*, *Theo Kỹ thuật viên (Staff)* hoặc *Theo Phòng dịch vụ (Room)* để tránh trùng phòng.

@@ -14,6 +14,7 @@ import com.spacare.manager.core.designsystem.theme.*
 import com.spacare.manager.data.repository.SpaRepository
 import com.spacare.manager.feature.calendar.CalendarSchedulerScreen
 import com.spacare.manager.feature.checkout.CheckoutQrScreen
+import com.spacare.manager.feature.crm.ClientListScreen
 import com.spacare.manager.feature.crm.ClientProfileScreen
 import com.spacare.manager.feature.dashboard.RevenueDashboardScreen
 
@@ -34,9 +35,14 @@ fun SpaMainApp(
 ) {
     var currentDestination by remember { mutableStateOf(SpaNavDestination.CRM) }
 
-    val currentClient by repository.currentClient.collectAsState(initial = null)
+    val clients by repository.clients.collectAsState(initial = emptyList())
+    val selectedClientId by repository.selectedClientId.collectAsState(initial = "KH-8829")
     val appointments by repository.appointments.collectAsState(initial = emptyList())
     val currentInvoice by repository.currentInvoice.collectAsState(initial = null)
+
+    val selectedClient = remember(clients, selectedClientId) {
+        clients.find { it.id == selectedClientId }
+    }
 
     Scaffold(
         bottomBar = {
@@ -79,20 +85,74 @@ fun SpaMainApp(
             SpaNavDestination.CALENDAR -> {
                 CalendarSchedulerScreen(
                     appointments = appointments,
-                    onAppointmentClick = {
-                        // Xem chi tiết khách hàng của lịch hẹn này
-                        currentDestination = SpaNavDestination.CRM
+                    onAppointmentClick = { appt ->
+                        val matchedClient = clients.find { it.fullName == appt.clientName || it.phone == appt.clientPhone }
+                        if (matchedClient != null) {
+                            repository.selectClient(matchedClient.id)
+                            currentDestination = SpaNavDestination.CRM
+                        }
+                    },
+                    onAddAppointment = { newAppt ->
+                        repository.addAppointment(newAppt)
+                    },
+                    onUpdateAppointmentStatus = { id, status ->
+                        repository.updateAppointmentStatus(id, status)
+                    },
+                    onDeleteAppointment = { id ->
+                        repository.deleteAppointment(id)
+                    },
+                    onGoToCheckout = { appt ->
+                        repository.createInvoiceFromAppointment(appt)
+                        currentDestination = SpaNavDestination.CHECKOUT
                     },
                     modifier = Modifier.padding(paddingValues)
                 )
             }
             SpaNavDestination.CRM -> {
-                currentClient?.let { client ->
+                if (selectedClient != null) {
                     ClientProfileScreen(
-                        client = client,
-                        onBackClick = { currentDestination = SpaNavDestination.CALENDAR },
-                        onBookAppointmentClick = { currentDestination = SpaNavDestination.CALENDAR },
-                        onCheckoutClick = { currentDestination = SpaNavDestination.CHECKOUT },
+                        client = selectedClient,
+                        onBackClick = {
+                            repository.selectClient(null)
+                        },
+                        onBookAppointmentClick = {
+                            currentDestination = SpaNavDestination.CALENDAR
+                        },
+                        onCheckoutClick = {
+                            currentDestination = SpaNavDestination.CHECKOUT
+                        },
+                        onUpdateClient = { updatedClient ->
+                            repository.updateClient(updatedClient)
+                        },
+                        onDeleteClient = { clientId ->
+                            repository.deleteClient(clientId)
+                        },
+                        onCheckInSession = { packageId ->
+                            repository.checkInSession(selectedClient.id, packageId)
+                        },
+                        onAddTreatmentPackage = { pkg ->
+                            repository.addTreatmentPackage(selectedClient.id, pkg)
+                        },
+                        onAddBeforeAfter = { record ->
+                            repository.addBeforeAfter(selectedClient.id, record)
+                        },
+                        modifier = Modifier.padding(paddingValues)
+                    )
+                } else {
+                    ClientListScreen(
+                        clients = clients,
+                        onSelectClient = { client ->
+                            repository.selectClient(client.id)
+                        },
+                        onAddClient = { newClient ->
+                            repository.addClient(newClient)
+                        },
+                        onUpdateClient = { updatedClient ->
+                            repository.updateClient(updatedClient)
+                        },
+                        onDeleteClient = { clientId ->
+                            repository.deleteClient(clientId)
+                        },
                         modifier = Modifier.padding(paddingValues)
                     )
                 }
@@ -101,11 +161,14 @@ fun SpaMainApp(
                 currentInvoice?.let { invoice ->
                     CheckoutQrScreen(
                         invoice = invoice,
-                        onSimulatePaymentSuccess = {
-                            repository.simulatePaymentSuccess()
+                        onConfirmPayment = {
+                            repository.markInvoiceAsPaid()
                         },
-                        onResetPayment = {
-                            repository.resetPayment()
+                        onResetInvoice = {
+                            repository.resetInvoice()
+                        },
+                        onUpdateBank = { bank, accNo, holder ->
+                            repository.updateBank(bank, accNo, holder)
                         },
                         onBackClick = { currentDestination = SpaNavDestination.CRM },
                         modifier = Modifier.padding(paddingValues)
@@ -121,4 +184,3 @@ fun SpaMainApp(
         }
     }
 }
-
