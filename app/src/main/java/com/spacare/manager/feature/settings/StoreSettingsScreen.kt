@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ShortText
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -58,7 +59,9 @@ fun StoreSettingsScreen(
     var selectedBank by remember(storeProfile) { mutableStateOf(storeProfile.selectedBank) }
     var accountNumber by remember(storeProfile) { mutableStateOf(storeProfile.accountNumber) }
     var accountHolder by remember(storeProfile) { mutableStateOf(storeProfile.accountHolder) }
+    var defaultMemo by remember(storeProfile) { mutableStateOf(storeProfile.defaultMemo) }
     var showBankPicker by remember { mutableStateOf(false) }
+    var bankSearchQuery by remember { mutableStateOf("") }
 
     // State chỉnh sửa thông tin Spa
     var spaName by remember(storeProfile) { mutableStateOf(storeProfile.name) }
@@ -226,6 +229,19 @@ fun StoreSettingsScreen(
                                     singleLine = true
                                 )
 
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Nội dung chuyển khoản mặc định
+                                OutlinedTextField(
+                                    value = defaultMemo,
+                                    onValueChange = { defaultMemo = it },
+                                    label = { Text("Nội dung chuyển khoản mặc định *") },
+                                    placeholder = { Text("Vd: SPACARE") },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.ShortText, contentDescription = null, tint = SageGreenPrimary) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
+                                )
+
                                 Spacer(modifier = Modifier.height(16.dp))
 
                                 // Nút Lưu
@@ -236,7 +252,8 @@ fun StoreSettingsScreen(
                                                 storeProfile.copy(
                                                     selectedBank = selectedBank,
                                                     accountNumber = accountNumber.trim(),
-                                                    accountHolder = accountHolder.trim().uppercase()
+                                                    accountHolder = accountHolder.trim().uppercase(),
+                                                    defaultMemo = defaultMemo.trim()
                                                 )
                                             )
                                             snackbarMessage = "Đã cập nhật tài khoản ngân hàng thành công!"
@@ -563,38 +580,87 @@ fun StoreSettingsScreen(
 
     // Modal chọn ngân hàng
     if (showBankPicker) {
+        val filteredBanks = remember(bankSearchQuery) {
+            if (bankSearchQuery.isBlank()) SupportedBanks
+            else SupportedBanks.filter {
+                it.shortName.contains(bankSearchQuery, ignoreCase = true) ||
+                it.fullName.contains(bankSearchQuery, ignoreCase = true) ||
+                it.bin.contains(bankSearchQuery)
+            }
+        }
         AlertDialog(
-            onDismissRequest = { showBankPicker = false },
-            title = { Text("Chọn Ngân Hàng Của Bạn") },
+            onDismissRequest = {
+                showBankPicker = false
+                bankSearchQuery = ""
+            },
+            title = {
+                Text("Chọn Ngân Hàng (${SupportedBanks.size})", fontWeight = FontWeight.Bold, color = SageGreenPrimary)
+            },
             containerColor = WarmBeigeSurface,
             text = {
-                LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    items(SupportedBanks) { bank ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedBank = bank
-                                    showBankPicker = false
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = bankSearchQuery,
+                        onValueChange = { bankSearchQuery = it },
+                        placeholder = { Text("Tìm theo tên, viết tắt hoặc BIN...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = SageGreenPrimary) },
+                        trailingIcon = {
+                            if (bankSearchQuery.isNotEmpty()) {
+                                IconButton(onClick = { bankSearchQuery = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Xóa")
                                 }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text(bank.shortName, fontWeight = FontWeight.Bold, color = SageGreenPrimary)
-                                Text(bank.fullName, style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
                             }
-                            if (selectedBank.bin == bank.bin) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = SageGreenPrimary)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 10.dp),
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.small
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 380.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(filteredBanks, key = { it.bin + it.shortName }) { bank ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        selectedBank = bank
+                                        showBankPicker = false
+                                        bankSearchQuery = ""
+                                    }
+                                    .padding(vertical = 10.dp, horizontal = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(bank.shortName, fontWeight = FontWeight.Bold, color = SageGreenPrimary)
+                                    Text(
+                                        "${bank.fullName} • BIN: ${bank.bin}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextSecondary
+                                    )
+                                }
+                                if (selectedBank.bin == bank.bin) {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = SageGreenPrimary)
+                                }
                             }
+                            HorizontalDivider(color = WarmBeigeBorder.copy(alpha = 0.5f))
                         }
                     }
                 }
             },
             confirmButton = {},
             dismissButton = {
-                OutlinedButton(onClick = { showBankPicker = false }) {
+                OutlinedButton(onClick = {
+                    showBankPicker = false
+                    bankSearchQuery = ""
+                }) {
                     Text("Đóng")
                 }
             }

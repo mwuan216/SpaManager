@@ -1,15 +1,20 @@
 package com.spacare.manager.feature.checkout
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,9 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -30,26 +37,55 @@ import com.spacare.manager.domain.model.*
 import java.text.NumberFormat
 import java.util.Locale
 
+enum class CheckoutTab(val title: String) {
+    STORE_QR("QR Cửa Hàng (Mặc định)"),
+    INVOICE_BILL("Hóa Đơn Dịch Vụ")
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CheckoutQrScreen(
     invoice: CheckoutInvoice,
+    storeProfile: StoreProfile = StoreProfile(),
+    isStoreDefaultMode: Boolean = true,
     onConfirmPayment: () -> Unit,
     onResetInvoice: () -> Unit,
-    onUpdateBank: (bank: BankOption, accountNo: String, accountHolder: String) -> Unit,
+    onUpdateBank: (bank: BankOption, accountNo: String, accountHolder: String, defaultMemo: String) -> Unit = { _, _, _, _ -> },
     onBackClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val currencyFormatter = remember { NumberFormat.getNumberInstance(Locale("vi", "VN")) }
 
-    var expandedBankDropdown by remember { mutableStateOf(false) }
-    var selectedBank by remember(invoice) { mutableStateOf(invoice.selectedBank) }
-    var accountNumber by remember(invoice) { mutableStateOf(invoice.accountNumber) }
-    var accountHolder by remember(invoice) { mutableStateOf(invoice.accountHolder) }
+    var activeTab by remember(isStoreDefaultMode) {
+        mutableStateOf(if (isStoreDefaultMode) CheckoutTab.STORE_QR else CheckoutTab.INVOICE_BILL)
+    }
 
+    // State cho QR Cửa Hàng
+    var storeCustomAmount by remember { mutableStateOf("") }
+    var storePaymentReceived by remember { mutableStateOf(false) }
+    var storeTransactionRef by remember { mutableStateOf("") }
+
+    // Dialog state
     var showEditAccountDialog by remember { mutableStateOf(false) }
-    var snackbarMessage by remember { mutableStateOf<String?>(null) }
+    var showBankPickerDialog by remember { mutableStateOf(false) }
+    var bankSearchQuery by remember { mutableStateOf("") }
+
+    val parsedStoreAmount = storeCustomAmount.replace(".", "").replace(",", "").toLongOrNull() ?: 0L
+    val storeMemo = storeProfile.defaultMemo.ifBlank { "SPACARE" }
+
+    val storeVietQrUrl = remember(storeProfile, parsedStoreAmount, storeMemo) {
+        val bankId = storeProfile.selectedBank.bin
+        val accNo = storeProfile.accountNumber
+        val holder = java.net.URLEncoder.encode(storeProfile.accountHolder, "UTF-8")
+        val memoEncoded = java.net.URLEncoder.encode(storeMemo, "UTF-8")
+        if (parsedStoreAmount > 0) {
+            "https://img.vietqr.io/image/$bankId-$accNo-compact2.png?amount=$parsedStoreAmount&addInfo=$memoEncoded&accountName=$holder"
+        } else {
+            "https://img.vietqr.io/image/$bankId-$accNo-compact2.png?addInfo=$memoEncoded&accountName=$holder"
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -68,12 +104,12 @@ fun CheckoutQrScreen(
                         )
                         Column {
                             Text(
-                                text = "Thu Ngân & Sinh Mã VietQR",
+                                text = "Thu Ngân & VietQR",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Hóa đơn #${invoice.invoiceCode} • ${invoice.clientName}",
+                                text = if (activeTab == CheckoutTab.STORE_QR) storeProfile.name else "Hóa đơn #${invoice.invoiceCode} • ${invoice.clientName}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = CharcoalTextSecondary
                             )
@@ -86,8 +122,11 @@ fun CheckoutQrScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onResetInvoice) {
-                        Icon(imageVector = Icons.Default.AddShoppingCart, contentDescription = "Tạo hóa đơn mới", tint = SageGreenPrimary)
+                    IconButton(onClick = {
+                        onResetInvoice()
+                        activeTab = CheckoutTab.INVOICE_BILL
+                    }) {
+                        Icon(imageVector = Icons.Default.AddShoppingCart, contentDescription = "Tạo đơn mới", tint = SageGreenPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -98,400 +137,581 @@ fun CheckoutQrScreen(
         },
         containerColor = WarmBeigeBackground
     ) { paddingValues ->
-        LazyColumn(
+        Column(
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 32.dp)
         ) {
+            // Thanh chuyển Tab Thu Ngân
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = activeTab == CheckoutTab.STORE_QR,
+                    onClick = { activeTab = CheckoutTab.STORE_QR },
+                    label = { Text("QR Cửa Hàng (Mặc định)", fontWeight = if (activeTab == CheckoutTab.STORE_QR) FontWeight.Bold else FontWeight.Normal) },
+                    leadingIcon = { Icon(Icons.Default.Storefront, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = SageGreenContainer,
+                        selectedLabelColor = SageGreenOnContainer
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
 
-            // 1. Thẻ mã VietQR động
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium, // 16.dp
-                    colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(18.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Row(
+                FilterChip(
+                    selected = activeTab == CheckoutTab.INVOICE_BILL,
+                    onClick = { activeTab = CheckoutTab.INVOICE_BILL },
+                    label = { Text("Theo Hóa Đơn", fontWeight = if (activeTab == CheckoutTab.INVOICE_BILL) FontWeight.Bold else FontWeight.Normal) },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = SageGreenContainer,
+                        selectedLabelColor = SageGreenOnContainer
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                contentPadding = PaddingValues(bottom = 80.dp)
+            ) {
+
+                // ==========================================
+                // CHẾ ĐỘ 1: MÃ QR CỦA CỬA HÀNG (MẶC ĐỊNH)
+                // ==========================================
+                if (activeTab == CheckoutTab.STORE_QR) {
+                    item {
+                        Card(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(18.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.QrCode2,
-                                    contentDescription = null,
-                                    tint = SageGreenPrimary
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.QrCode2,
+                                            contentDescription = null,
+                                            tint = SageGreenPrimary
+                                        )
+                                        Text(
+                                            text = "VIETQR CỬA HÀNG",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = SageGreenPrimary
+                                        )
+                                    }
+
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (storePaymentReceived) SuccessGreenContainer else WarmBeigeSurfaceVariant
+                                    ) {
+                                        Text(
+                                            text = if (storePaymentReceived) "Đã nhận tiền" else "Sẵn sàng nhận tiền",
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (storePaymentReceived) SuccessGreen else CharcoalTextSecondary
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Khung ảnh QR cửa hàng
+                                Box(
+                                    modifier = Modifier
+                                        .size(240.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .border(1.5.dp, if (storePaymentReceived) SuccessGreen else SageGreenContainer, RoundedCornerShape(16.dp))
+                                        .background(Color.White)
+                                        .padding(8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (storePaymentReceived) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = SuccessGreen,
+                                                modifier = Modifier.size(68.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                text = "Đã nhận tiền thành công!",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = SuccessGreen
+                                            )
+                                            Text(
+                                                text = "Mã GD: $storeTransactionRef",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = CharcoalTextSecondary
+                                            )
+                                        }
+                                    } else {
+                                        AsyncImage(
+                                            model = storeVietQrUrl,
+                                            contentDescription = "VietQR Code",
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Ô nhập số tiền tùy chọn
+                                OutlinedTextField(
+                                    value = storeCustomAmount,
+                                    onValueChange = { storeCustomAmount = it },
+                                    label = { Text("Số tiền cần thu (để trống nếu khách tự nhập)") },
+                                    placeholder = { Text("0 đ") },
+                                    leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null, tint = SageGreenPrimary) },
+                                    trailingIcon = {
+                                        if (storeCustomAmount.isNotEmpty()) {
+                                            IconButton(onClick = { storeCustomAmount = "" }) {
+                                                Icon(Icons.Default.Close, contentDescription = "Xóa")
+                                            }
+                                        }
+                                    },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    shape = MaterialTheme.shapes.small
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Dải nút bấm nhanh số tiền
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    val quickAmounts = listOf(100000L, 200000L, 500000L, 1000000L, 2000000L)
+                                    items(quickAmounts) { amt ->
+                                        SuggestionChip(
+                                            onClick = { storeCustomAmount = amt.toString() },
+                                            label = { Text("${amt / 1000}k", fontSize = 11.sp) }
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                HorizontalDivider(color = WarmBeigeBorder)
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Chi tiết tài khoản cửa hàng
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    BankInfoItemRow(
+                                        label = "Ngân hàng thụ hưởng",
+                                        value = "${storeProfile.selectedBank.shortName} (${storeProfile.selectedBank.fullName})",
+                                        onAction = { showBankPickerDialog = true },
+                                        actionIcon = Icons.Default.SwapHoriz
+                                    )
+                                    BankInfoItemRow(
+                                        label = "Số tài khoản",
+                                        value = storeProfile.accountNumber,
+                                        onAction = {
+                                            clipboardManager.setText(AnnotatedString(storeProfile.accountNumber))
+                                            Toast.makeText(context, "Đã copy số tài khoản", Toast.LENGTH_SHORT).show()
+                                        },
+                                        actionIcon = Icons.Default.ContentCopy
+                                    )
+                                    BankInfoItemRow(
+                                        label = "Chủ tài khoản",
+                                        value = storeProfile.accountHolder
+                                    )
+                                    BankInfoItemRow(
+                                        label = "Nội dung chuyển khoản",
+                                        value = storeMemo,
+                                        isBold = true,
+                                        onAction = {
+                                            clipboardManager.setText(AnnotatedString(storeMemo))
+                                            Toast.makeText(context, "Đã copy nội dung chuyển khoản", Toast.LENGTH_SHORT).show()
+                                        },
+                                        actionIcon = Icons.Default.ContentCopy
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Nút xác nhận nhận tiền / reset
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    if (storePaymentReceived) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                storePaymentReceived = false
+                                                storeCustomAmount = ""
+                                            },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text("Thu tiền mới")
+                                        }
+                                    } else {
+                                        Button(
+                                            onClick = {
+                                                storePaymentReceived = true
+                                                storeTransactionRef = "CK-${System.currentTimeMillis().toString().takeLast(6)}"
+                                                Toast.makeText(context, "Đã ghi nhận thanh toán thành công!", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Xác nhận đã nhận tiền", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ==========================================
+                // CHẾ ĐỘ 2: THANH TOÁN THEO HÓA ĐƠN CHI TIẾT
+                // ==========================================
+                if (activeTab == CheckoutTab.INVOICE_BILL) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(18.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.QrCode2,
+                                            contentDescription = null,
+                                            tint = SageGreenPrimary
+                                        )
+                                        Text(
+                                            text = "VIETQR HÓA ĐƠN",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = SageGreenPrimary
+                                        )
+                                    }
+
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (invoice.paymentStatus == PaymentStatus.PAYMENT_SUCCESS) SuccessGreenContainer else WarmBeigeSurfaceVariant
+                                    ) {
+                                        Text(
+                                            text = if (invoice.paymentStatus == PaymentStatus.PAYMENT_SUCCESS) "Đã thanh toán" else "Chờ thanh toán",
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (invoice.paymentStatus == PaymentStatus.PAYMENT_SUCCESS) SuccessGreen else CharcoalTextSecondary
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Ảnh QR hóa đơn
+                                Box(
+                                    modifier = Modifier
+                                        .size(240.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .border(1.5.dp, if (invoice.paymentStatus == PaymentStatus.PAYMENT_SUCCESS) SuccessGreen else SageGreenContainer, RoundedCornerShape(16.dp))
+                                        .background(Color.White)
+                                        .padding(8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (invoice.paymentStatus == PaymentStatus.PAYMENT_SUCCESS) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = SuccessGreen,
+                                                modifier = Modifier.size(68.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                text = "Thanh toán thành công!",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = SuccessGreen
+                                            )
+                                            Text(
+                                                text = "Mã GD: ${invoice.transactionRef ?: "CK-SPA"}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = CharcoalTextSecondary
+                                            )
+                                        }
+                                    } else {
+                                        AsyncImage(
+                                            model = invoice.vietQrInfo.qrImageUrl,
+                                            contentDescription = "VietQR Code",
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                Text(
+                                    text = "Số tiền thanh toán",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = CharcoalTextSecondary
                                 )
                                 Text(
-                                    text = "MÃ THANH TOÁN VIETQR",
-                                    style = MaterialTheme.typography.titleMedium,
+                                    text = "${currencyFormatter.format(invoice.finalTotal)} đ",
+                                    style = MaterialTheme.typography.headlineLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = SageGreenPrimary
                                 )
-                            }
 
-                            // Trạng thái thanh toán badge
-                            Surface(
-                                shape = CircleShape,
-                                color = if (invoice.paymentStatus == PaymentStatus.PAYMENT_SUCCESS) SuccessGreenContainer else WarmBeigeSurfaceVariant
-                            ) {
-                                Text(
-                                    text = if (invoice.paymentStatus == PaymentStatus.PAYMENT_SUCCESS) "Đã thanh toán" else "Chờ thanh toán",
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (invoice.paymentStatus == PaymentStatus.PAYMENT_SUCCESS) SuccessGreen else CharcoalTextSecondary
-                                )
-                            }
-                        }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                HorizontalDivider(color = WarmBeigeBorder)
+                                Spacer(modifier = Modifier.height(10.dp))
 
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Khung hiển thị ảnh QR Napas 247
-                        Box(
-                            modifier = Modifier
-                                .size(240.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .border(1.5.dp, if (invoice.paymentStatus == PaymentStatus.PAYMENT_SUCCESS) SuccessGreen else SageGreenContainer, RoundedCornerShape(16.dp))
-                                .background(Color.White)
-                                .padding(8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (invoice.paymentStatus == PaymentStatus.PAYMENT_SUCCESS) {
                                 Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = SuccessGreen,
-                                        modifier = Modifier.size(68.dp)
+                                    BankInfoItemRow(
+                                        label = "Ngân hàng thụ hưởng",
+                                        value = "${invoice.selectedBank.shortName} (${invoice.selectedBank.fullName})",
+                                        onAction = { showBankPickerDialog = true },
+                                        actionIcon = Icons.Default.SwapHoriz
                                     )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "Thanh toán thành công!",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SuccessGreen
-                                    )
-                                    Text(
-                                        text = "Mã GD: ${invoice.transactionRef ?: "CK-SPA"}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = CharcoalTextSecondary
-                                    )
-                                }
-                            } else {
-                                AsyncImage(
-                                    model = invoice.vietQrInfo.qrImageUrl,
-                                    contentDescription = "VietQR Code",
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Hiển thị số tiền to rõ
-                        Text(
-                            text = "Số tiền thanh toán",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = CharcoalTextSecondary
-                        )
-                        Text(
-                            text = "${currencyFormatter.format(invoice.finalTotal)} đ",
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = SageGreenPrimary
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-                        HorizontalDivider(color = WarmBeigeBorder)
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Chi tiết tài khoản nhận tiền
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            BankInfoItemRow(
-                                label = "Ngân hàng thụ hưởng",
-                                value = "${invoice.selectedBank.shortName} (${invoice.selectedBank.fullName})",
-                                onAction = { expandedBankDropdown = true },
-                                actionIcon = Icons.Default.SwapHoriz
-                            )
-                            BankInfoItemRow(
-                                label = "Số tài khoản",
-                                value = invoice.accountNumber,
-                                onAction = {
-                                    clipboardManager.setText(AnnotatedString(invoice.accountNumber))
-                                    snackbarMessage = "Đã copy số tài khoản"
-                                },
-                                actionIcon = Icons.Default.ContentCopy
-                            )
-                            BankInfoItemRow(
-                                label = "Chủ tài khoản",
-                                value = invoice.accountHolder
-                            )
-                            BankInfoItemRow(
-                                label = "Nội dung chuyển khoản",
-                                value = invoice.invoiceCode,
-                                isBold = true,
-                                onAction = {
-                                    clipboardManager.setText(AnnotatedString(invoice.invoiceCode))
-                                    snackbarMessage = "Đã copy nội dung chuyển khoản"
-                                },
-                                actionIcon = Icons.Default.ContentCopy
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        TextButton(
-                            onClick = { showEditAccountDialog = true },
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Đổi số tài khoản Spa", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-            }
-
-            // 2. Chi tiết dịch vụ & sản phẩm trong hóa đơn
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Chi Tiết Dịch Vụ & Mỹ Phẩm",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = CharcoalTextPrimary
-                            )
-                            Text(
-                                text = "${invoice.items.size} mục",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = CharcoalTextSecondary
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        invoice.items.forEach { item ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = item.name,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = CharcoalTextPrimary
-                                    )
-                                    Text(
-                                        text = when (item.type) {
-                                            ItemType.PACKAGE -> "Trừ liệu trình (1 buổi)"
-                                            ItemType.SERVICE -> "Dịch vụ spa (x${item.quantity})"
-                                            ItemType.PRODUCT -> "Mỹ phẩm mang về (x${item.quantity})"
+                                    BankInfoItemRow(
+                                        label = "Số tài khoản",
+                                        value = invoice.accountNumber,
+                                        onAction = {
+                                            clipboardManager.setText(AnnotatedString(invoice.accountNumber))
+                                            Toast.makeText(context, "Đã copy số tài khoản", Toast.LENGTH_SHORT).show()
                                         },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = CharcoalTextMuted
+                                        actionIcon = Icons.Default.ContentCopy
+                                    )
+                                    BankInfoItemRow(
+                                        label = "Chủ tài khoản",
+                                        value = invoice.accountHolder
+                                    )
+                                    BankInfoItemRow(
+                                        label = "Nội dung chuyển khoản",
+                                        value = "${invoice.defaultMemo} ${invoice.invoiceCode}".trim(),
+                                        isBold = true,
+                                        onAction = {
+                                            clipboardManager.setText(AnnotatedString("${invoice.defaultMemo} ${invoice.invoiceCode}".trim()))
+                                            Toast.makeText(context, "Đã copy nội dung chuyển khoản", Toast.LENGTH_SHORT).show()
+                                        },
+                                        actionIcon = Icons.Default.ContentCopy
                                     )
                                 }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                if (invoice.paymentStatus != PaymentStatus.PAYMENT_SUCCESS) {
+                                    Button(
+                                        onClick = {
+                                            onConfirmPayment()
+                                            Toast.makeText(context, "Đã xác nhận thanh toán hóa đơn #${invoice.invoiceCode}", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Xác nhận đã thanh toán", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Danh sách món trong hóa đơn
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = if (item.totalPrice == 0L) "0 đ" else "${currencyFormatter.format(item.totalPrice)} đ",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (item.totalPrice == 0L) SageGreenPrimary else CharcoalTextPrimary
+                                    text = "Chi Tiết Dịch Vụ & Mỹ Phẩm",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CharcoalTextPrimary
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                invoice.items.forEach { item ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(item.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                            Text(
+                                                text = "${item.quantity} x ${currencyFormatter.format(item.unitPrice)} đ",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = CharcoalTextSecondary
+                                            )
+                                        }
+                                        Text(
+                                            text = "${currencyFormatter.format(item.totalPrice)} đ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CharcoalTextPrimary
+                                        )
+                                    }
+                                    HorizontalDivider(color = WarmBeigeBorder.copy(alpha = 0.5f))
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                CheckoutSummaryRow(label = "Tạm tính", value = "${currencyFormatter.format(invoice.subtotal)} đ")
+                                if (invoice.discountAmount > 0) {
+                                    CheckoutSummaryRow(
+                                        label = "Giảm giá / Khuyến mãi",
+                                        value = "-${currencyFormatter.format(invoice.discountAmount)} đ",
+                                        highlightColor = AllergyAlertRed
+                                    )
+                                }
+                                CheckoutSummaryRow(
+                                    label = "Tổng thanh toán",
+                                    value = "${currencyFormatter.format(invoice.finalTotal)} đ",
+                                    isTotal = true
                                 )
                             }
-                            HorizontalDivider(
-                                color = WarmBeigeSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 3.dp)
-                            )
                         }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        CheckoutSummaryRow("Tạm tính", "${currencyFormatter.format(invoice.subtotal)} đ")
-                        if (invoice.discountAmount > 0) {
-                            CheckoutSummaryRow(
-                                "Ưu đãi thành viên",
-                                "-${currencyFormatter.format(invoice.discountAmount)} đ",
-                                highlightColor = AllergyAlertRed
-                            )
-                        }
-                        CheckoutSummaryRow(
-                            "Tổng thanh toán",
-                            "${currencyFormatter.format(invoice.finalTotal)} đ",
-                            isTotal = true
-                        )
-                    }
-                }
-            }
-
-            // 3. Thao tác chốt thanh toán & Tạo hóa đơn mới
-            item {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    if (invoice.paymentStatus == PaymentStatus.WAITING_FOR_PAYMENT) {
-                        Button(
-                            onClick = onConfirmPayment,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            shape = MaterialTheme.shapes.small,
-                            colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
-                        ) {
-                            Icon(Icons.Default.Check, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Xác Nhận Đã Nhận Tiền / Hoàn Tất",
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                    } else {
-                        Button(
-                            onClick = onResetInvoice,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            shape = MaterialTheme.shapes.small,
-                            colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Tạo Hóa Đơn Cho Khách Mới")
-                        }
-                    }
-
-                    OutlinedButton(
-                        onClick = onResetInvoice,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Làm mới / Reset hóa đơn")
                     }
                 }
             }
         }
     }
 
-    // Dialog chọn nhanh Ngân hàng
-    if (expandedBankDropdown) {
+    // Modal chọn ngân hàng từ danh sách 44 ngân hàng VietQR
+    if (showBankPickerDialog) {
+        val filteredBanks = remember(bankSearchQuery) {
+            if (bankSearchQuery.isBlank()) SupportedBanks
+            else SupportedBanks.filter {
+                it.shortName.contains(bankSearchQuery, ignoreCase = true) ||
+                it.fullName.contains(bankSearchQuery, ignoreCase = true) ||
+                it.bin.contains(bankSearchQuery)
+            }
+        }
         AlertDialog(
-            onDismissRequest = { expandedBankDropdown = false },
-            title = { Text("Chọn Ngân Hàng Thụ Hưởng") },
+            onDismissRequest = {
+                showBankPickerDialog = false
+                bankSearchQuery = ""
+            },
+            title = {
+                Text("Đổi Ngân Hàng Thụ Hưởng (${SupportedBanks.size})", fontWeight = FontWeight.Bold, color = SageGreenPrimary)
+            },
+            containerColor = WarmBeigeSurface,
             text = {
-                LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    items(SupportedBanks.size) { index ->
-                        val bank = SupportedBanks[index]
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedBank = bank
-                                    onUpdateBank(bank, accountNumber, accountHolder)
-                                    expandedBankDropdown = false
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = bankSearchQuery,
+                        onValueChange = { bankSearchQuery = it },
+                        placeholder = { Text("Tìm theo tên hoặc BIN...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = SageGreenPrimary) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.small
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 360.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(filteredBanks, key = { it.bin + it.shortName }) { bank ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        onUpdateBank(bank, storeProfile.accountNumber, storeProfile.accountHolder, storeMemo)
+                                        showBankPickerDialog = false
+                                        bankSearchQuery = ""
+                                        Toast.makeText(context, "Đã chuyển sang ngân hàng ${bank.shortName}", Toast.LENGTH_SHORT).show()
+                                    }
+                                    .padding(vertical = 10.dp, horizontal = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(bank.shortName, fontWeight = FontWeight.Bold, color = SageGreenPrimary)
+                                    Text(
+                                        "${bank.fullName} • ${bank.bin}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextSecondary
+                                    )
                                 }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text(bank.shortName, fontWeight = FontWeight.Bold, color = SageGreenPrimary)
-                                Text(bank.fullName, style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
+                                if (storeProfile.selectedBank.bin == bank.bin) {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = SageGreenPrimary)
+                                }
                             }
-                            if (invoice.selectedBank.bin == bank.bin) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = SageGreenPrimary)
-                            }
+                            HorizontalDivider(color = WarmBeigeBorder.copy(alpha = 0.5f))
                         }
                     }
                 }
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { expandedBankDropdown = false }) {
+                OutlinedButton(onClick = {
+                    showBankPickerDialog = false
+                    bankSearchQuery = ""
+                }) {
                     Text("Đóng")
-                }
-            }
-        )
-    }
-
-    // Dialog chỉnh sửa thông tin tài khoản nhận tiền Spa
-    if (showEditAccountDialog) {
-        var tempAccountNo by remember { mutableStateOf(invoice.accountNumber) }
-        var tempHolder by remember { mutableStateOf(invoice.accountHolder) }
-
-        AlertDialog(
-            onDismissRequest = { showEditAccountDialog = false },
-            title = { Text("Cấu Hình Tài Khoản Nhận Tiền") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = tempAccountNo,
-                        onValueChange = { tempAccountNo = it },
-                        label = { Text("Số tài khoản") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = tempHolder,
-                        onValueChange = { tempHolder = it },
-                        label = { Text("Tên chủ tài khoản") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        accountNumber = tempAccountNo.trim()
-                        accountHolder = tempHolder.trim()
-                        onUpdateBank(invoice.selectedBank, accountNumber, accountHolder)
-                        showEditAccountDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
-                ) {
-                    Text("Lưu tài khoản")
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showEditAccountDialog = false }) {
-                    Text("Hủy")
                 }
             }
         )

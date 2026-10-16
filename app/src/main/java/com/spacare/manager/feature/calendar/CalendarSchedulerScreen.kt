@@ -1,7 +1,9 @@
 package com.spacare.manager.feature.calendar
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,7 +33,11 @@ import com.spacare.manager.core.designsystem.theme.*
 import com.spacare.manager.domain.model.Appointment
 import com.spacare.manager.domain.model.AppointmentStatus
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 enum class CalendarViewMode(val label: String) {
     TIMELINE("Dòng thời gian"),
@@ -55,30 +62,49 @@ fun CalendarSchedulerScreen(
     onGoToCheckout: (Appointment) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var selectedViewMode by remember { mutableStateOf(CalendarViewMode.TIMELINE) }
-    var selectedDayIndex by remember { mutableIntStateOf(3) } // Thứ 6 ngày 16
+    var selectedDateStr by remember { mutableStateOf("16/10/2026") }
+    var showCalendarDatePicker by remember { mutableStateOf(false) }
+
     var selectedStaffFilter by remember { mutableStateOf<String?>(null) }
     var selectedRoomFilter by remember { mutableStateOf<String?>(null) }
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var activeAppointmentDetail by remember { mutableStateOf<Appointment?>(null) }
 
-    val daysList = remember {
-        listOf(
-            DayItem("T3", "13", "13/10/2026"),
-            DayItem("T4", "14", "14/10/2026"),
-            DayItem("T5", "15", "15/10/2026"),
-            DayItem("T6", "16", "16/10/2026"),
-            DayItem("T7", "17", "17/10/2026"),
-            DayItem("CN", "18", "18/10/2026"),
-            DayItem("T2", "19", "19/10/2026")
-        )
+    // Dải ngày động quanh ngày đang chọn (-7 ngày đến +7 ngày)
+    val daysList = remember(selectedDateStr) {
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val currentDate = try {
+            sdf.parse(selectedDateStr) ?: Date()
+        } catch (e: Exception) {
+            Date()
+        }
+        val cal = Calendar.getInstance()
+        (-7..7).map { offset ->
+            cal.time = currentDate
+            cal.add(Calendar.DAY_OF_YEAR, offset)
+            val dow = when (cal.get(Calendar.DAY_OF_WEEK)) {
+                Calendar.MONDAY -> "T2"
+                Calendar.TUESDAY -> "T3"
+                Calendar.WEDNESDAY -> "T4"
+                Calendar.THURSDAY -> "T5"
+                Calendar.FRIDAY -> "T6"
+                Calendar.SATURDAY -> "T7"
+                Calendar.SUNDAY -> "CN"
+                else -> ""
+            }
+            val dom = cal.get(Calendar.DAY_OF_MONTH).toString()
+            val full = sdf.format(cal.time)
+            DayItem(dow, dom, full)
+        }
     }
 
-    val selectedDate = daysList[selectedDayIndex].fullDate
+    val selectedDate = selectedDateStr
 
     // Lọc cuộc hẹn theo ngày và theo chế độ xem
-    val filteredAppointments = remember(appointments, selectedDayIndex, selectedViewMode, selectedStaffFilter, selectedRoomFilter) {
+    val filteredAppointments = remember(appointments, selectedDate, selectedViewMode, selectedStaffFilter, selectedRoomFilter) {
         appointments.filter { appt ->
             val matchDate = appt.date == selectedDate
             val matchMode = when (selectedViewMode) {
@@ -96,7 +122,8 @@ fun CalendarSchedulerScreen(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.clickable { showCalendarDatePicker = true }
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.app_logo),
@@ -106,11 +133,22 @@ fun CalendarSchedulerScreen(
                                 .clip(RoundedCornerShape(8.dp))
                         )
                         Column {
-                            Text(
-                                text = "Lịch Hẹn & Phân Bổ Phòng",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "Lịch Hẹn & Phân Bổ Phòng",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = "Chọn ngày",
+                                    tint = SageGreenPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                             Text(
                                 text = "Ngày $selectedDate • ${filteredAppointments.size} cuộc hẹn",
                                 style = MaterialTheme.typography.bodySmall,
@@ -120,6 +158,9 @@ fun CalendarSchedulerScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showCalendarDatePicker = true }) {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = "Chọn ngày bất kỳ", tint = SageGreenPrimary)
+                    }
                     IconButton(onClick = { showCreateDialog = true }) {
                         Icon(Icons.Default.AddCircleOutline, contentDescription = "Tạo lịch", tint = SageGreenPrimary)
                     }
@@ -157,15 +198,15 @@ fun CalendarSchedulerScreen(
             ) {
                 items(daysList.size) { index ->
                     val day = daysList[index]
-                    val isSelected = index == selectedDayIndex
+                    val isSelected = day.fullDate == selectedDateStr
 
                     Surface(
                         modifier = Modifier
-                            .width(52.dp)
+                            .width(54.dp)
                             .height(68.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .clickable {
-                                selectedDayIndex = index
+                                selectedDateStr = day.fullDate
                             },
                         color = if (isSelected) SageGreenPrimary else WarmBeigeSurface,
                         border = if (!isSelected) androidx.compose.foundation.BorderStroke(1.dp, WarmBeigeBorder) else null,
@@ -314,6 +355,48 @@ fun CalendarSchedulerScreen(
         }
     }
 
+    // Modal DatePickerDialog chọn ngày bất kỳ (quá khứ / hiện tại / tương lai)
+    if (showCalendarDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = remember(selectedDateStr) {
+                try {
+                    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply {
+                        timeZone = TimeZone.getTimeZone("UTC")
+                    }
+                    sdf.parse(selectedDateStr)?.time ?: System.currentTimeMillis()
+                } catch (e: Exception) {
+                    System.currentTimeMillis()
+                }
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showCalendarDatePicker = false },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply {
+                                timeZone = TimeZone.getTimeZone("UTC")
+                            }
+                            selectedDateStr = sdf.format(Date(millis))
+                        }
+                        showCalendarDatePicker = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
+                ) {
+                    Text("Chọn ngày")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showCalendarDatePicker = false }) {
+                    Text("Hủy")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
     // Dialog Tạo lịch hẹn mới
     if (showCreateDialog) {
         CreateAppointmentDialog(
@@ -321,7 +404,9 @@ fun CalendarSchedulerScreen(
             onDismissRequest = { showCreateDialog = false },
             onSave = { newAppt ->
                 onAddAppointment(newAppt)
+                selectedDateStr = newAppt.date // Tự động chuyển view sang ngày vừa tạo
                 showCreateDialog = false
+                Toast.makeText(context, "Đã tạo lịch hẹn thành công cho ngày ${newAppt.date}", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -333,11 +418,20 @@ fun CalendarSchedulerScreen(
             onDismissRequest = { activeAppointmentDetail = null },
             onUpdateStatus = { newStatus ->
                 onUpdateAppointmentStatus(appt.id, newStatus)
-                activeAppointmentDetail = null
+                activeAppointmentDetail = appt.copy(status = newStatus)
+                val statusLabel = when (newStatus) {
+                    AppointmentStatus.PENDING -> "Chờ duyệt"
+                    AppointmentStatus.CONFIRMED -> "Đã xác nhận"
+                    AppointmentStatus.IN_SERVICE -> "Đang làm"
+                    AppointmentStatus.COMPLETED -> "Hoàn thành"
+                    AppointmentStatus.CANCELLED -> "Đã hủy hẹn"
+                }
+                Toast.makeText(context, "Đã cập nhật: $statusLabel", Toast.LENGTH_SHORT).show()
             },
             onDelete = {
                 onDeleteAppointment(appt.id)
                 activeAppointmentDetail = null
+                Toast.makeText(context, "Đã xóa lịch hẹn", Toast.LENGTH_SHORT).show()
             },
             onCheckout = {
                 activeAppointmentDetail = null
@@ -518,12 +612,16 @@ fun AppointmentScheduleCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateAppointmentDialog(
     defaultDate: String,
     onDismissRequest: () -> Unit,
     onSave: (Appointment) -> Unit
 ) {
+    var appointmentDate by remember { mutableStateOf(defaultDate) }
+    var showDatePickerDialog by remember { mutableStateOf(false) }
+
     var clientName by remember { mutableStateOf("") }
     var clientPhone by remember { mutableStateOf("") }
     var serviceName by remember { mutableStateOf("Liệu Trình Whitening Facial Căng Bóng") }
@@ -554,13 +652,40 @@ fun CreateAppointmentDialog(
                     color = SageGreenPrimary
                 )
 
-                Text(
-                    text = "Ngày hẹn: $defaultDate",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = CharcoalTextSecondary
-                )
+                Spacer(modifier = Modifier.height(12.dp))
 
-                Spacer(modifier = Modifier.height(14.dp))
+                // Ô chọn ngày hẹn thực hiện dịch vụ
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, WarmBeigeBorder, RoundedCornerShape(8.dp))
+                        .clickable { showDatePickerDialog = true }
+                        .padding(12.dp),
+                    color = WarmBeigeSurfaceVariant
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, tint = SageGreenPrimary)
+                            Column {
+                                Text("Ngày thực hiện dịch vụ", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
+                                Text(appointmentDate, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = SageGreenPrimary)
+                            }
+                        }
+                        TextButton(onClick = { showDatePickerDialog = true }) {
+                            Text("Đổi ngày", color = SageGreenPrimary, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 OutlinedTextField(
                     value = clientName,
@@ -671,7 +796,7 @@ fun CreateAppointmentDialog(
                                     roomName = roomName.trim(),
                                     startTime = startTime.trim(),
                                     endTime = endTimeFormatted,
-                                    date = defaultDate,
+                                    date = appointmentDate,
                                     status = AppointmentStatus.CONFIRMED,
                                     price = priceText.toLongOrNull() ?: 0L,
                                     reminderSent = true
@@ -687,6 +812,47 @@ fun CreateAppointmentDialog(
                     }
                 }
             }
+        }
+    }
+
+    if (showDatePickerDialog) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = remember(appointmentDate) {
+                try {
+                    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply {
+                        timeZone = TimeZone.getTimeZone("UTC")
+                    }
+                    sdf.parse(appointmentDate)?.time ?: System.currentTimeMillis()
+                } catch (e: Exception) {
+                    System.currentTimeMillis()
+                }
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePickerDialog = false },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply {
+                                timeZone = TimeZone.getTimeZone("UTC")
+                            }
+                            appointmentDate = sdf.format(Date(millis))
+                        }
+                        showDatePickerDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
+                ) {
+                    Text("Xác nhận")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDatePickerDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }
@@ -705,12 +871,49 @@ fun AppointmentDetailDialog(
         onDismissRequest = onDismissRequest,
         title = {
             Column {
-                Text(
-                    text = appointment.clientName,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = CharcoalTextPrimary
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = appointment.clientName,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = CharcoalTextPrimary
+                    )
+                    // Status Badge
+                    Surface(
+                        shape = CircleShape,
+                        color = when (appointment.status) {
+                            AppointmentStatus.CONFIRMED -> SageGreenContainer
+                            AppointmentStatus.IN_SERVICE -> SpaGoldContainer
+                            AppointmentStatus.COMPLETED -> SuccessGreenContainer
+                            AppointmentStatus.CANCELLED -> AllergyAlertRed.copy(alpha = 0.15f)
+                            AppointmentStatus.PENDING -> WarmBeigeSurfaceVariant
+                        }
+                    ) {
+                        Text(
+                            text = when (appointment.status) {
+                                AppointmentStatus.CONFIRMED -> "Đã xác nhận"
+                                AppointmentStatus.IN_SERVICE -> "Đang làm"
+                                AppointmentStatus.COMPLETED -> "Hoàn thành"
+                                AppointmentStatus.CANCELLED -> "Đã hủy"
+                                AppointmentStatus.PENDING -> "Chờ duyệt"
+                            },
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = when (appointment.status) {
+                                AppointmentStatus.CONFIRMED -> SageGreenPrimary
+                                AppointmentStatus.IN_SERVICE -> SpaGoldPrimary
+                                AppointmentStatus.COMPLETED -> SuccessGreen
+                                AppointmentStatus.CANCELLED -> AllergyAlertRed
+                                AppointmentStatus.PENDING -> CharcoalTextSecondary
+                            }
+                        )
+                    }
+                }
                 Text(
                     text = "${appointment.startTime} - ${appointment.endTime} • ${appointment.date}",
                     style = MaterialTheme.typography.bodySmall,
@@ -726,35 +929,74 @@ fun AppointmentDetailDialog(
                 Text("Chi phí: ${if (appointment.price == 0L) "Trừ gói dịch vụ" else currencyFormatter.format(appointment.price) + " đ"}")
 
                 Spacer(modifier = Modifier.height(10.dp))
-                Text("Cập nhật trạng thái:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Text("Cập nhật trạng thái thật:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
 
+                // Hàng 1: Đã hẹn & Đang làm
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
+                        onClick = { onUpdateStatus(AppointmentStatus.CONFIRMED) },
+                        modifier = Modifier.weight(1f),
+                        colors = if (appointment.status == AppointmentStatus.CONFIRMED) {
+                            ButtonDefaults.outlinedButtonColors(containerColor = SageGreenContainer)
+                        } else ButtonDefaults.outlinedButtonColors(),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "Đã hẹn",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (appointment.status == AppointmentStatus.CONFIRMED) SageGreenPrimary else CharcoalTextPrimary
+                        )
+                    }
+
+                    Button(
                         onClick = { onUpdateStatus(AppointmentStatus.IN_SERVICE) },
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (appointment.status == AppointmentStatus.IN_SERVICE) SpaGoldPrimary else WarmBeigeSurfaceVariant,
+                            contentColor = if (appointment.status == AppointmentStatus.IN_SERVICE) Color.White else CharcoalTextPrimary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
                     ) {
-                        Text("Đang làm", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text("Đang làm", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
+                }
+
+                // Hàng 2: Hoàn thành & Hủy hẹn
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Button(
                         onClick = { onUpdateStatus(AppointmentStatus.COMPLETED) },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = SageGreenPrimary,
-                            contentColor = Color.White
+                            containerColor = if (appointment.status == AppointmentStatus.COMPLETED) SuccessGreen else SuccessGreenContainer,
+                            contentColor = if (appointment.status == AppointmentStatus.COMPLETED) Color.White else SuccessGreen
                         ),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Hoàn thành", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("Hoàn thành", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = { onUpdateStatus(AppointmentStatus.CANCELLED) },
+                        modifier = Modifier.weight(1f),
+                        colors = if (appointment.status == AppointmentStatus.CANCELLED) {
+                            ButtonDefaults.outlinedButtonColors(containerColor = AllergyAlertRed.copy(alpha = 0.1f), contentColor = AllergyAlertRed)
+                        } else ButtonDefaults.outlinedButtonColors(contentColor = AllergyAlertRed),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                    ) {
+                        Text("Hủy hẹn", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Button(
                     onClick = onCheckout,

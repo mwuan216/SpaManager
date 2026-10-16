@@ -17,7 +17,8 @@ class SpaRepository {
             address = "128 Phan Xích Long, P. 2, Q. Phú Nhuận, TP.HCM",
             selectedBank = SupportedBanks[0], // Vietcombank làm gợi ý ban đầu
             accountNumber = "1023456789",
-            accountHolder = "SPA CARE WELLNESS CENTER"
+            accountHolder = "SPA CARE WELLNESS CENTER",
+            defaultMemo = "SPACARE"
         )
     )
     val storeProfile: Flow<StoreProfile> = _storeProfile.asStateFlow()
@@ -28,7 +29,8 @@ class SpaRepository {
         _currentInvoice.value = _currentInvoice.value.copy(
             selectedBank = profile.selectedBank,
             accountNumber = profile.accountNumber,
-            accountHolder = profile.accountHolder
+            accountHolder = profile.accountHolder,
+            defaultMemo = profile.defaultMemo
         )
     }
 
@@ -134,7 +136,7 @@ class SpaRepository {
                 fullName = "Nguyễn Thu Hà",
                 phone = "0912 345 678",
                 email = "thuha.nguyen@gmail.com",
-                vipTier = VipTier.GOLD,
+                vipTier = VipTier.VIP,
                 skinType = "Da hỗn hợp thiên dầu, biểu bì mỏng",
                 skinConditionNotes = "Vùng chữ T tiết dầu nhẹ, hai bên má có mao mạch nông. Hàng rào bảo vệ da đang phục hồi sau treatment trước đó.",
                 allergyAlerts = listOf(
@@ -207,7 +209,7 @@ class SpaRepository {
                 fullName = "Trần Bích Ngọc",
                 phone = "0988 776 655",
                 email = "bichngoc.tran@yahoo.com",
-                vipTier = VipTier.DIAMOND,
+                vipTier = VipTier.VIP,
                 skinType = "Da khô thiếu nước, xuất hiện nếp nhăn tĩnh",
                 skinConditionNotes = "Vùng khóe mắt và rãnh cười có dấu hiệu lão hóa sớm, cần liệu trình cấp ẩm chuyên sâu và collagen tái sinh.",
                 allergyAlerts = listOf(
@@ -247,7 +249,7 @@ class SpaRepository {
                 fullName = "Lê Hoàng Yến",
                 phone = "0909 112 233",
                 email = "hoangyen.le@gmail.com",
-                vipTier = VipTier.SILVER,
+                vipTier = VipTier.STANDARD,
                 skinType = "Da dầu mụn bọc, lỗ chân lông to",
                 skinConditionNotes = "Đang trong giai đoạn gom cồi mụn viêm, kết hợp chiếu ánh sáng sinh học Biolight giảm thâm đỏ.",
                 allergyAlerts = listOf(
@@ -509,22 +511,25 @@ class SpaRepository {
             paymentStatus = PaymentStatus.WAITING_FOR_PAYMENT,
             selectedBank = SupportedBanks[0], // Vietcombank
             accountNumber = "1023456789",
-            accountHolder = "SPA CARE WELLNESS CENTER"
+            accountHolder = "SPA CARE WELLNESS CENTER",
+            defaultMemo = "SPACARE"
         )
     )
     val currentInvoice: Flow<CheckoutInvoice> = _currentInvoice.asStateFlow()
 
-    fun updateBank(bank: BankOption, accountNumber: String, accountHolder: String) {
+    fun updateBank(bank: BankOption, accountNumber: String, accountHolder: String, defaultMemo: String = "SPACARE") {
         _currentInvoice.value = _currentInvoice.value.copy(
             selectedBank = bank,
             accountNumber = accountNumber,
-            accountHolder = accountHolder
+            accountHolder = accountHolder,
+            defaultMemo = defaultMemo
         )
         // Đồng thời cập nhật vào cấu hình cửa hàng
         _storeProfile.value = _storeProfile.value.copy(
             selectedBank = bank,
             accountNumber = accountNumber,
-            accountHolder = accountHolder
+            accountHolder = accountHolder,
+            defaultMemo = defaultMemo
         )
     }
 
@@ -553,7 +558,8 @@ class SpaRepository {
             paymentStatus = PaymentStatus.WAITING_FOR_PAYMENT,
             selectedBank = store.selectedBank,
             accountNumber = store.accountNumber,
-            accountHolder = store.accountHolder
+            accountHolder = store.accountHolder,
+            defaultMemo = store.defaultMemo
         )
     }
 
@@ -578,23 +584,28 @@ class SpaRepository {
             paymentStatus = PaymentStatus.WAITING_FOR_PAYMENT,
             selectedBank = store.selectedBank,
             accountNumber = store.accountNumber,
-            accountHolder = store.accountHolder
+            accountHolder = store.accountHolder,
+            defaultMemo = store.defaultMemo
         )
     }
 
     // --- BÁO CÁO DOANH THU ĐỘNG THEO NGÀY ---
     fun getMetricsForDate(dateStr: String): DashboardMetrics {
         val dayAppts = _appointments.value.filter { it.date == dateStr }
-        val dayRevenue = if (dayAppts.isEmpty()) 0L else dayAppts.sumOf { it.price } + 16300000L // Bao gồm các gói và mỹ phẩm
-        val bookingCount = if (dayAppts.isEmpty()) 0 else dayAppts.size
+        val bookingCount = dayAppts.size
+        val dayRevenue = if (dayAppts.isEmpty()) {
+            0L
+        } else {
+            dayAppts.sumOf { it.price } + 8200000L // Doanh số dịch vụ + sản phẩm mỹ phẩm bán kèm trong ngày
+        }
 
         return DashboardMetrics(
             todayRevenue = dayRevenue,
-            todayGrowthPercent = 14.8f,
+            todayGrowthPercent = if (dayRevenue > 0) 14.8f else 0f,
             weekRevenue = 112400000L,
             monthRevenue = 465800000L,
             totalBookingsToday = bookingCount,
-            roomOccupancyRate = if (bookingCount > 0) 84.5f else 0f,
+            roomOccupancyRate = if (bookingCount > 0) (bookingCount * 17.5f).coerceAtMost(100f) else 0f,
             topServices = listOf(
                 TopServiceMetric("Liệu Trình Căng Bóng Whitening Facial", 42, 63000000L, 38f),
                 TopServiceMetric("Gội Đầu Dưỡng Sinh Thảo Dược", 68, 27200000L, 22f),

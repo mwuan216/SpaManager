@@ -19,6 +19,9 @@ import com.spacare.manager.feature.crm.ClientProfileScreen
 import com.spacare.manager.feature.dashboard.RevenueDashboardScreen
 import com.spacare.manager.feature.settings.StoreSettingsScreen
 
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
+
 enum class SpaNavDestination(
     val title: String,
     val selectedIcon: ImageVector,
@@ -36,12 +39,13 @@ fun SpaMainApp(
     repository: SpaRepository = remember { SpaRepository() }
 ) {
     var currentDestination by remember { mutableStateOf(SpaNavDestination.CALENDAR) }
+    var checkoutFromAppointment by remember { mutableStateOf(false) }
 
     val clients by repository.clients.collectAsState(initial = emptyList())
     val selectedClientId by repository.selectedClientId.collectAsState(initial = null)
     val appointments by repository.appointments.collectAsState(initial = emptyList())
     val currentInvoice by repository.currentInvoice.collectAsState(initial = null)
-    val storeProfile by repository.storeProfile.collectAsState(initial = repository.storeProfile.let { null } ?: com.spacare.manager.domain.model.StoreProfile())
+    val storeProfile by repository.storeProfile.collectAsState(initial = com.spacare.manager.domain.model.StoreProfile())
     val catalogPackages by repository.catalogPackages.collectAsState(initial = emptyList())
     val technicians by repository.technicians.collectAsState(initial = emptyList())
 
@@ -66,6 +70,9 @@ fun SpaMainApp(
                                 // Luôn mở màn danh sách khách hàng mới khi ấn vào tab Khách Hàng
                                 repository.selectClient(null)
                             }
+                            if (destination == SpaNavDestination.CHECKOUT) {
+                                checkoutFromAppointment = false
+                            }
                             currentDestination = destination
                         },
                         icon = {
@@ -78,7 +85,10 @@ fun SpaMainApp(
                         label = {
                             Text(
                                 text = destination.title,
-                                style = MaterialTheme.typography.labelSmall
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
@@ -94,6 +104,7 @@ fun SpaMainApp(
         },
         containerColor = WarmBeigeBackground
     ) { paddingValues ->
+        val screenModifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding())
         when (currentDestination) {
             SpaNavDestination.CALENDAR -> {
                 CalendarSchedulerScreen(
@@ -116,9 +127,10 @@ fun SpaMainApp(
                     },
                     onGoToCheckout = { appt ->
                         repository.createInvoiceFromAppointment(appt)
+                        checkoutFromAppointment = true
                         currentDestination = SpaNavDestination.CHECKOUT
                     },
-                    modifier = Modifier.padding(paddingValues)
+                    modifier = screenModifier
                 )
             }
             SpaNavDestination.CRM -> {
@@ -132,6 +144,7 @@ fun SpaMainApp(
                             currentDestination = SpaNavDestination.CALENDAR
                         },
                         onCheckoutClick = {
+                            checkoutFromAppointment = true
                             currentDestination = SpaNavDestination.CHECKOUT
                         },
                         onUpdateClient = { updatedClient ->
@@ -149,7 +162,7 @@ fun SpaMainApp(
                         onAddBeforeAfter = { record ->
                             repository.addBeforeAfter(selectedClient.id, record)
                         },
-                        modifier = Modifier.padding(paddingValues)
+                        modifier = screenModifier
                     )
                 } else {
                     ClientListScreen(
@@ -166,7 +179,7 @@ fun SpaMainApp(
                         onDeleteClient = { clientId ->
                             repository.deleteClient(clientId)
                         },
-                        modifier = Modifier.padding(paddingValues)
+                        modifier = screenModifier
                     )
                 }
             }
@@ -174,17 +187,19 @@ fun SpaMainApp(
                 currentInvoice?.let { invoice ->
                     CheckoutQrScreen(
                         invoice = invoice,
+                        storeProfile = storeProfile,
+                        isStoreDefaultMode = !checkoutFromAppointment,
                         onConfirmPayment = {
                             repository.markInvoiceAsPaid()
                         },
                         onResetInvoice = {
                             repository.resetInvoice()
                         },
-                        onUpdateBank = { bank, accNo, holder ->
-                            repository.updateBank(bank, accNo, holder)
+                        onUpdateBank = { bank, accNo, holder, memo ->
+                            repository.updateBank(bank, accNo, holder, memo)
                         },
                         onBackClick = { currentDestination = SpaNavDestination.CRM },
-                        modifier = Modifier.padding(paddingValues)
+                        modifier = screenModifier
                     )
                 }
             }
@@ -198,7 +213,7 @@ fun SpaMainApp(
                     onDateSelected = { newDate ->
                         selectedDashboardDate = newDate
                     },
-                    modifier = Modifier.padding(paddingValues)
+                    modifier = screenModifier
                 )
             }
             SpaNavDestination.SETTINGS -> {
@@ -227,7 +242,7 @@ fun SpaMainApp(
                     onDeleteTechnician = { techId ->
                         repository.deleteTechnician(techId)
                     },
-                    modifier = Modifier.padding(paddingValues)
+                    modifier = screenModifier
                 )
             }
         }

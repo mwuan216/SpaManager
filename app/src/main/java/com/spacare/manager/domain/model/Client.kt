@@ -6,7 +6,7 @@ data class Client(
     val phone: String,
     val email: String,
     val avatarUrl: String? = null,
-    val vipTier: VipTier = VipTier.GOLD,
+    val vipTier: VipTier = VipTier.STANDARD,
     val skinType: String,
     val skinConditionNotes: String,
     val allergyAlerts: List<String>,
@@ -17,10 +17,8 @@ data class Client(
 )
 
 enum class VipTier(val title: String) {
-    STANDARD("Thành Viên Thân Thiết"),
-    SILVER("Hội Viên Bạc"),
-    GOLD("Hội Viên Vàng (VIP)"),
-    DIAMOND("Khách Hàng Kim Cương")
+    STANDARD("Khách hàng"),
+    VIP("Thân thiết")
 }
 
 data class TreatmentPackage(

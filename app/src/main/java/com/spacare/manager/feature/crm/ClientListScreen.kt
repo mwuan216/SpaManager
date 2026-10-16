@@ -135,7 +135,7 @@ fun ClientListScreen(
                 singleLine = true
             )
 
-            // Dải lọc theo hạng VIP (LazyRow không bao giờ bị tràn width hay kéo dài height)
+            // Dải lọc phân loại hội viên (2 mục: Khách hàng (tất cả) và Thân thiết)
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -144,27 +144,28 @@ fun ClientListScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
                 item {
+                    val allCount = clients.size
                     FilterChip(
                         selected = selectedTierFilter == null,
                         onClick = { selectedTierFilter = null },
-                        label = { Text("Tất cả (${clients.size})") },
+                        label = { Text("Khách hàng (Tất cả: $allCount)", fontWeight = if (selectedTierFilter == null) FontWeight.Bold else FontWeight.Normal) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = SageGreenContainer,
                             selectedLabelColor = SageGreenOnContainer
                         )
                     )
                 }
-                items(VipTier.entries) { tier ->
-                    val count = clients.count { it.vipTier == tier }
+                item {
+                    val vipCount = clients.count { it.vipTier == VipTier.VIP }
                     FilterChip(
-                        selected = selectedTierFilter == tier,
+                        selected = selectedTierFilter == VipTier.VIP,
                         onClick = {
-                            selectedTierFilter = if (selectedTierFilter == tier) null else tier
+                            selectedTierFilter = if (selectedTierFilter == VipTier.VIP) null else VipTier.VIP
                         },
-                        label = { Text("${tier.title.split(" ").take(2).joinToString(" ")} ($count)") },
+                        label = { Text("Thân thiết ($vipCount)", fontWeight = if (selectedTierFilter == VipTier.VIP) FontWeight.Bold else FontWeight.Normal) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = SageGreenContainer,
-                            selectedLabelColor = SageGreenOnContainer
+                            selectedContainerColor = SpaGoldContainer,
+                            selectedLabelColor = SpaGoldPrimary
                         )
                     )
                 }
@@ -293,16 +294,16 @@ fun ClientSummaryCard(
                             color = CharcoalTextPrimary
                         )
 
-                        // VIP Badge
+                        // VIP / Phân loại Badge
                         Surface(
-                            color = SpaGoldContainer,
+                            color = if (client.vipTier == VipTier.VIP) SpaGoldContainer else WarmBeigeSurfaceVariant,
                             shape = CircleShape
                         ) {
                             Text(
-                                text = client.vipTier.title.split(" ").take(2).joinToString(" "),
+                                text = client.vipTier.title,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = SpaGoldPrimary,
+                                color = if (client.vipTier == VipTier.VIP) SpaGoldPrimary else CharcoalTextSecondary,
                                 fontWeight = FontWeight.Bold
                             )
                         }

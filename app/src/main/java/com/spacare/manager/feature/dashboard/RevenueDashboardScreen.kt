@@ -35,6 +35,7 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,7 +66,8 @@ fun RevenueDashboardScreen(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.clickable { showDatePickerDialog = true }
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.app_logo),
@@ -75,11 +77,17 @@ fun RevenueDashboardScreen(
                                 .clip(RoundedCornerShape(8.dp))
                         )
                         Column {
-                            Text(
-                                text = "Báo Cáo & Doanh Thu",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "Báo Cáo & Doanh Thu",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = SageGreenPrimary, modifier = Modifier.size(18.dp))
+                            }
                             Text(
                                 text = "Ngày: $selectedDate",
                                 style = MaterialTheme.typography.bodySmall,
@@ -486,47 +494,47 @@ fun RevenueDashboardScreen(
         }
     }
 
-    // Modal chọn ngày xem báo cáo
+    // Modal chọn ngày xem báo cáo bất kỳ
     if (showDatePickerDialog) {
-        AlertDialog(
-            onDismissRequest = { showDatePickerDialog = false },
-            title = { Text("Chọn Ngày Xem Báo Cáo") },
-            containerColor = WarmBeigeSurface,
-            text = {
-                LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    items(availableDates) { (dateStr, label) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    onDateSelected(dateStr)
-                                    showDatePickerDialog = false
-                                }
-                                .padding(vertical = 12.dp, horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (selectedDate == dateStr) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedDate == dateStr) SageGreenPrimary else CharcoalTextPrimary
-                            )
-                            if (selectedDate == dateStr) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = SageGreenPrimary)
-                            }
-                        }
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = remember(selectedDate) {
+                try {
+                    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply {
+                        timeZone = TimeZone.getTimeZone("UTC")
                     }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                OutlinedButton(onClick = { showDatePickerDialog = false }) {
-                    Text("Đóng")
+                    sdf.parse(selectedDate)?.time ?: System.currentTimeMillis()
+                } catch (e: Exception) {
+                    System.currentTimeMillis()
                 }
             }
         )
+        DatePickerDialog(
+            onDismissRequest = { showDatePickerDialog = false },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply {
+                                timeZone = TimeZone.getTimeZone("UTC")
+                            }
+                            val pickedDate = sdf.format(Date(millis))
+                            onDateSelected(pickedDate)
+                        }
+                        showDatePickerDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
+                ) {
+                    Text("Xem báo cáo")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDatePickerDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 
     // Modal Xác nhận Xuất Báo Cáo CSV
