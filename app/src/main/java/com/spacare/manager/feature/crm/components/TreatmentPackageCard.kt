@@ -110,17 +110,43 @@ fun TreatmentPackageCard(
                         }
                     }
 
+                    val isCompleted = pkg.remainingSessions <= 0 || pkg.usedSessions >= pkg.totalSessions
                     Surface(
                         shape = CircleShape,
-                        color = if (pkg.remainingSessions <= 2) AllergyAlertContainer else SageGreenContainer
+                        color = when {
+                            isCompleted -> SuccessGreenContainer
+                            pkg.remainingSessions <= 2 -> AllergyAlertContainer
+                            else -> SageGreenContainer
+                        }
                     ) {
-                        Text(
-                            text = if (pkg.remainingSessions <= 2) "Sắp hết liệu trình" else "Đang kích hoạt",
+                        Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (pkg.remainingSessions <= 2) AllergyAlertRed else SageGreenPrimary,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (isCompleted) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = SuccessGreen,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                            Text(
+                                text = when {
+                                    isCompleted -> "Hoàn thành"
+                                    pkg.remainingSessions <= 2 -> "Sắp hết liệu trình"
+                                    else -> "Đang kích hoạt"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = when {
+                                    isCompleted -> SuccessGreen
+                                    pkg.remainingSessions <= 2 -> AllergyAlertRed
+                                    else -> SageGreenPrimary
+                                },
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
@@ -128,14 +154,15 @@ fun TreatmentPackageCard(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Thanh tiến độ trực quan (Progress Indicator)
-            val progress = pkg.usedSessions.toFloat() / pkg.totalSessions.toFloat()
+            val isCompleted = pkg.remainingSessions <= 0 || pkg.usedSessions >= pkg.totalSessions
+            val progress = if (isCompleted) 1.0f else (pkg.usedSessions.toFloat() / pkg.totalSessions.toFloat().coerceAtLeast(1f))
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
                     .clip(CircleShape),
-                color = SageGreenPrimary,
+                color = if (isCompleted) SuccessGreen else SageGreenPrimary,
                 trackColor = WarmBeigeSurfaceVariant
             )
 
@@ -152,24 +179,50 @@ fun TreatmentPackageCard(
                     color = CharcoalTextMuted
                 )
 
-                OutlinedButton(
-                    onClick = onUseSessionClick,
-                    shape = MaterialTheme.shapes.small,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = SageGreenPrimary
-                    ),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Điểm danh buổi",
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                if (isCompleted) {
+                    Surface(
+                        shape = CircleShape,
+                        color = SuccessGreenContainer
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = SuccessGreen,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = "Đã hoàn thành gói",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = SuccessGreen,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = onUseSessionClick,
+                        shape = MaterialTheme.shapes.small,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = SageGreenPrimary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Điểm danh buổi",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
                 }
             }
         }

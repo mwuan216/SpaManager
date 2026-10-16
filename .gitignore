@@ -60,3 +60,5 @@ backend/npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Kotlin temporary files
+.kotlin/

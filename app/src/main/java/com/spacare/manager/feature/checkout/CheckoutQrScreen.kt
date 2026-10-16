@@ -28,6 +28,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -48,6 +49,8 @@ fun CheckoutQrScreen(
     invoice: CheckoutInvoice,
     storeProfile: StoreProfile = StoreProfile(),
     isStoreDefaultMode: Boolean = true,
+    unpaidAppointments: List<Appointment> = emptyList(),
+    onSelectAppointmentInvoice: (Appointment) -> Unit = {},
     onConfirmPayment: () -> Unit,
     onResetInvoice: () -> Unit,
     onUpdateBank: (bank: BankOption, accountNo: String, accountHolder: String, defaultMemo: String) -> Unit = { _, _, _, _ -> },
@@ -412,6 +415,176 @@ fun CheckoutQrScreen(
                 // CHẾ ĐỘ 2: THANH TOÁN THEO HÓA ĐƠN CHI TIẾT
                 // ==========================================
                 if (activeTab == CheckoutTab.INVOICE_BILL) {
+                    // Thẻ Chọn Hóa Đơn / Lịch Hẹn Chưa Thanh Toán Hôm Nay
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                                            contentDescription = null,
+                                            tint = SageGreenPrimary
+                                        )
+                                        Text(
+                                            text = "Chọn Hóa Đơn Hôm Nay",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CharcoalTextPrimary
+                                        )
+                                    }
+
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (unpaidAppointments.isNotEmpty()) SageGreenContainer else WarmBeigeSurfaceVariant
+                                    ) {
+                                        Text(
+                                            text = "${unpaidAppointments.size} lịch hẹn",
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (unpaidAppointments.isNotEmpty()) SageGreenPrimary else CharcoalTextMuted
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Bấm vào lịch hẹn bên dưới để tự động tải thông tin bill & tạo mã VietQR:",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = CharcoalTextSecondary
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                if (unpaidAppointments.isEmpty()) {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = WarmBeigeSurfaceVariant
+                                    ) {
+                                        Text(
+                                            text = "Không có lịch hẹn nào chờ thanh toán.",
+                                            modifier = Modifier.padding(12.dp),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = CharcoalTextMuted
+                                        )
+                                    }
+                                } else {
+                                    LazyRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        items(unpaidAppointments, key = { it.id }) { appt ->
+                                            val isSelectedAppt = invoice.appointmentId == appt.id ||
+                                                (invoice.clientName == appt.clientName && invoice.items.any { it.name == appt.serviceName })
+                                            Surface(
+                                                modifier = Modifier
+                                                    .width(230.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .border(
+                                                        width = if (isSelectedAppt) 1.5.dp else 1.dp,
+                                                        color = if (isSelectedAppt) SageGreenPrimary else WarmBeigeBorder,
+                                                        shape = RoundedCornerShape(10.dp)
+                                                    )
+                                                    .clickable { onSelectAppointmentInvoice(appt) },
+                                                color = if (isSelectedAppt) SageGreenContainer.copy(alpha = 0.45f) else WarmBeigeSurfaceVariant
+                                            ) {
+                                                Column(modifier = Modifier.padding(10.dp)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = appt.startTime,
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = SageGreenPrimary
+                                                        )
+                                                        Surface(
+                                                            shape = CircleShape,
+                                                            color = when (appt.status) {
+                                                                AppointmentStatus.IN_SERVICE -> SpaGoldContainer
+                                                                else -> SageGreenContainer
+                                                            }
+                                                        ) {
+                                                            Text(
+                                                                text = when (appt.status) {
+                                                                    AppointmentStatus.IN_SERVICE -> "Đang làm"
+                                                                    else -> "Đã hẹn"
+                                                                },
+                                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                fontSize = 9.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = when (appt.status) {
+                                                                    AppointmentStatus.IN_SERVICE -> SpaGoldPrimary
+                                                                    else -> SageGreenPrimary
+                                                                }
+                                                            )
+                                                        }
+                                                    }
+
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Text(
+                                                        text = appt.clientName,
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = CharcoalTextPrimary,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Text(
+                                                        text = appt.serviceName,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = CharcoalTextSecondary,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        fontSize = 11.sp
+                                                    )
+
+                                                    Spacer(modifier = Modifier.height(6.dp))
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = if (appt.price == 0L) "Trừ gói" else "${currencyFormatter.format(appt.price)} đ",
+                                                            style = MaterialTheme.typography.labelMedium,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (appt.price == 0L) SageGreenPrimary else SpaGoldPrimary
+                                                        )
+                                                        Text(
+                                                            text = if (isSelectedAppt) "Đang chọn" else "Chọn thanh toán",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (isSelectedAppt) SageGreenPrimary else CharcoalTextMuted,
+                                                            fontSize = 10.sp
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),

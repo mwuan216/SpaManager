@@ -18,6 +18,9 @@ import com.spacare.manager.feature.crm.ClientListScreen
 import com.spacare.manager.feature.crm.ClientProfileScreen
 import com.spacare.manager.feature.dashboard.RevenueDashboardScreen
 import com.spacare.manager.feature.settings.StoreSettingsScreen
+import com.spacare.manager.core.license.LicenseManager
+import com.spacare.manager.feature.license.TrialExpiredLockDialog
+import androidx.compose.ui.platform.LocalContext
 
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
@@ -41,6 +44,14 @@ fun SpaMainApp(
     var currentDestination by remember { mutableStateOf(SpaNavDestination.CALENDAR) }
     var checkoutFromAppointment by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    val licenseManager = remember { LicenseManager.getInstance(context) }
+    var licenseStatus by remember { mutableStateOf(licenseManager.getLicenseStatus()) }
+
+    LaunchedEffect(currentDestination) {
+        licenseStatus = licenseManager.getLicenseStatus()
+    }
+
     val clients by repository.clients.collectAsState(initial = emptyList())
     val selectedClientId by repository.selectedClientId.collectAsState(initial = null)
     val appointments by repository.appointments.collectAsState(initial = emptyList())
@@ -48,11 +59,19 @@ fun SpaMainApp(
     val storeProfile by repository.storeProfile.collectAsState(initial = com.spacare.manager.domain.model.StoreProfile())
     val catalogPackages by repository.catalogPackages.collectAsState(initial = emptyList())
     val technicians by repository.technicians.collectAsState(initial = emptyList())
+    val transactions by repository.transactions.collectAsState(initial = emptyList())
 
     var selectedDashboardDate by remember { mutableStateOf("16/10/2026") }
 
     val selectedClient = remember(clients, selectedClientId) {
         clients.find { it.id == selectedClientId }
+    }
+
+    val unpaidAppointments = remember(appointments) {
+        appointments.filter {
+            it.status != com.spacare.manager.domain.model.AppointmentStatus.COMPLETED &&
+            it.status != com.spacare.manager.domain.model.AppointmentStatus.CANCELLED
+        }
     }
 
     Scaffold(
@@ -162,6 +181,17 @@ fun SpaMainApp(
                         onAddBeforeAfter = { record ->
                             repository.addBeforeAfter(selectedClient.id, record)
                         },
+                        onAddAppointment = { newAppt ->
+                            repository.addAppointment(newAppt)
+                        },
+                        onAddSessionPhoto = { photo ->
+                            repository.addSessionPhoto(selectedClient.id, photo)
+                        },
+                        onUpdateSessionPhoto = { photo ->
+                            repository.updateSessionPhoto(selectedClient.id, photo)
+                        },
+                        catalogPackages = catalogPackages,
+                        technicians = technicians,
                         modifier = screenModifier
                     )
                 } else {
@@ -189,6 +219,11 @@ fun SpaMainApp(
                         invoice = invoice,
                         storeProfile = storeProfile,
                         isStoreDefaultMode = !checkoutFromAppointment,
+                        unpaidAppointments = unpaidAppointments,
+                        onSelectAppointmentInvoice = { appt ->
+                            repository.createInvoiceFromAppointment(appt)
+                            checkoutFromAppointment = true
+                        },
                         onConfirmPayment = {
                             repository.markInvoiceAsPaid()
                         },
@@ -210,6 +245,7 @@ fun SpaMainApp(
                 RevenueDashboardScreen(
                     metrics = dynamicMetrics,
                     selectedDate = selectedDashboardDate,
+                    transactions = transactions,
                     onDateSelected = { newDate ->
                         selectedDashboardDate = newDate
                     },
@@ -246,5 +282,15 @@ fun SpaMainApp(
                 )
             }
         }
+    }
+
+    // Khóa màn hình bắt buộc nhập key kích hoạt bản quyền khi đã hết hạn dùng thử 3 ngày
+    if (licenseStatus.isExpired) {
+        TrialExpiredLockDialog(
+            licenseManager = licenseManager,
+            onActivatedSuccess = {
+                licenseStatus = licenseManager.getLicenseStatus()
+            }
+        )
     }
 }

@@ -458,7 +458,7 @@ fun CalendarSchedulerScreen(
                     AppointmentStatus.PENDING -> "Chờ duyệt"
                     AppointmentStatus.CONFIRMED -> "Đã xác nhận"
                     AppointmentStatus.IN_SERVICE -> "Đang làm"
-                    AppointmentStatus.COMPLETED -> "Hoàn thành"
+                    AppointmentStatus.COMPLETED -> "Hoàn thành & tự động trừ 1 buổi liệu trình"
                     AppointmentStatus.CANCELLED -> "Đã hủy hẹn"
                 }
                 Toast.makeText(context, "Đã cập nhật: $statusLabel", Toast.LENGTH_SHORT).show()
@@ -1061,23 +1061,55 @@ fun AppointmentDetailDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Button(
-                    onClick = onCheckout,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = SpaGoldPrimary,
-                        contentColor = Color.White
-                    ),
-                    contentPadding = PaddingValues(vertical = 10.dp)
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "Chuyển sang Thu Ngân tạo VietQR",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
+                // Chỉ hiển thị nút Chuyển sang Thu Ngân nếu lịch hẹn chưa hoàn thành và chưa bị hủy
+                val canCheckout = appointment.status != AppointmentStatus.COMPLETED && appointment.status != AppointmentStatus.CANCELLED
+                if (canCheckout) {
+                    Button(
+                        onClick = onCheckout,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SpaGoldPrimary,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(vertical = 10.dp)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Chuyển sang Thu Ngân tạo VietQR",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                } else {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = WarmBeigeSurfaceVariant
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = if (appointment.status == AppointmentStatus.COMPLETED) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                                contentDescription = null,
+                                tint = if (appointment.status == AppointmentStatus.COMPLETED) SuccessGreen else AllergyAlertRed,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (appointment.status == AppointmentStatus.COMPLETED)
+                                    "Lịch hẹn đã hoàn thành (Không cần tạo QR)"
+                                else
+                                    "Lịch hẹn đã hủy (Không thể tạo QR)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CharcoalTextSecondary
+                            )
+                        }
+                    }
                 }
             }
         },

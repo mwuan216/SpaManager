@@ -202,6 +202,44 @@ class SpaRepository {
                         technicianName = "Chuyên viên Thảo My",
                         clinicalNotes = "Sắc tố đỏ vùng má giảm 75%, bề mặt da mịn màng, lỗ chân lông thu nhỏ đáng kể."
                     )
+                ),
+                sessionPhotos = listOf(
+                    SessionPhotoRecord(
+                        id = "SP-01",
+                        sessionNumber = 1,
+                        title = "Buổi 1: Trước điều trị",
+                        date = "12/08/2026",
+                        imageUrl = "https://images.unsplash.com/photo-1512290900672-1f55b9e59d4c?auto=format&fit=crop&w=600&q=80",
+                        notes = "Bề mặt da sần sùi, mao mạch nổi rõ, vùng má đỏ ửng sau kích ứng.",
+                        technicianName = "Thảo My"
+                    ),
+                    SessionPhotoRecord(
+                        id = "SP-02",
+                        sessionNumber = 3,
+                        title = "Buổi 3: Sau phục hồi O2",
+                        date = "28/08/2026",
+                        imageUrl = "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80",
+                        notes = "Nền da dịu đỏ 40%, hàng rào bảo vệ da bắt đầu dày lên, độ ẩm cải thiện.",
+                        technicianName = "Thảo My"
+                    ),
+                    SessionPhotoRecord(
+                        id = "SP-03",
+                        sessionNumber = 5,
+                        title = "Buổi 5: Điện di tế bào gốc",
+                        date = "18/09/2026",
+                        imageUrl = "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=600&q=80",
+                        notes = "Da sáng bật tone nhẹ, hết cảm giác ngứa căng, mờ thâm vi điểm vùng má.",
+                        technicianName = "Thảo My"
+                    ),
+                    SessionPhotoRecord(
+                        id = "SP-04",
+                        sessionNumber = 7,
+                        title = "Buổi 7: Căng bóng Whitening",
+                        date = "09/10/2026",
+                        imageUrl = "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=600&q=80",
+                        notes = "Độ đàn hồi tăng rõ rệt, da căng bóng tự nhiên, sắc tố đỏ giảm 80%.",
+                        technicianName = "Thảo My"
+                    )
                 )
             ),
             Client(
@@ -242,7 +280,27 @@ class SpaRepository {
                         feedback = "Rất thoải mái, dịch vụ chu đáo."
                     )
                 ),
-                beforeAfterComparisons = emptyList()
+                beforeAfterComparisons = emptyList(),
+                sessionPhotos = listOf(
+                    SessionPhotoRecord(
+                        id = "SP-11",
+                        sessionNumber = 1,
+                        title = "Buổi 1: Thăm khám ban đầu",
+                        date = "01/09/2026",
+                        imageUrl = "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=600&q=80",
+                        notes = "Da khô ráp, khóe mắt xuất hiện nếp nhăn tĩnh sâu khi cười.",
+                        technicianName = "Hương Giang"
+                    ),
+                    SessionPhotoRecord(
+                        id = "SP-12",
+                        sessionNumber = 2,
+                        title = "Buổi 2: Sau nâng cơ RF",
+                        date = "22/09/2026",
+                        imageUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80",
+                        notes = "Cơ mặt săn chắc hơn, rãnh cười đầy lên khoảng 30%.",
+                        technicianName = "Hương Giang"
+                    )
+                )
             ),
             Client(
                 id = "KH-8831",
@@ -365,6 +423,47 @@ class SpaRepository {
         updateClient(client.copy(beforeAfterComparisons = updatedRecords))
     }
 
+    fun addSessionPhoto(clientId: String, record: SessionPhotoRecord) {
+        val client = _clients.value.find { it.id == clientId } ?: return
+        val filtered = client.sessionPhotos.filterNot { it.id == record.id }
+        updateClient(client.copy(sessionPhotos = (filtered + record).sortedBy { it.sessionNumber }))
+    }
+
+    fun updateSessionPhoto(clientId: String, record: SessionPhotoRecord) {
+        val client = _clients.value.find { it.id == clientId } ?: return
+        val updated = client.sessionPhotos.map { if (it.id == record.id) record else it }
+        updateClient(client.copy(sessionPhotos = updated))
+    }
+
+    /**
+     * Tự động trừ 1 buổi trong gói liệu trình của khách hàng khi hoàn thành lịch hẹn
+     */
+    fun deductPackageSessionForClient(clientName: String, clientPhone: String, serviceName: String): Boolean {
+        val client = _clients.value.find {
+            it.phone.replace(" ", "") == clientPhone.replace(" ", "") ||
+            it.fullName.trim().equals(clientName.trim(), ignoreCase = true)
+        } ?: return false
+
+        // Tìm gói liệu trình phù hợp
+        val matchedPackage = client.treatmentPackages.firstOrNull { pkg ->
+            pkg.remainingSessions > 0 && (
+                serviceName.contains(pkg.name, ignoreCase = true) ||
+                pkg.name.contains(serviceName.replace(Regex("\\(Buổi.*?\\)"), "").trim(), ignoreCase = true) ||
+                (serviceName.contains("Facial", ignoreCase = true) && pkg.name.contains("Facial", ignoreCase = true)) ||
+                (serviceName.contains("Laser", ignoreCase = true) && pkg.name.contains("Laser", ignoreCase = true)) ||
+                (serviceName.contains("Mụn", ignoreCase = true) && pkg.name.contains("Mụn", ignoreCase = true)) ||
+                (serviceName.contains("Dưỡng Sinh", ignoreCase = true) && pkg.name.contains("Dưỡng Sinh", ignoreCase = true))
+            )
+        } ?: client.treatmentPackages.firstOrNull { it.remainingSessions > 0 }
+
+        if (matchedPackage != null) {
+            checkInSession(client.id, matchedPackage.id)
+            return true
+        }
+        return false
+    }
+
+
     // --- QUẢN LÝ LỊCH HẸN (CALENDAR) ---
     private val _appointments = MutableStateFlow(
         listOf(
@@ -458,8 +557,14 @@ class SpaRepository {
         val current = _appointments.value.toMutableList()
         val index = current.indexOfFirst { it.id == appointmentId }
         if (index != -1) {
-            current[index] = current[index].copy(status = status)
+            val appt = current[index]
+            current[index] = appt.copy(status = status)
             _appointments.value = current
+
+            // Khi bấm hoàn thành các gói trừ dịch vụ thì tự trừ buổi của khách hàng đi
+            if (status == AppointmentStatus.COMPLETED) {
+                deductPackageSessionForClient(appt.clientName, appt.clientPhone, appt.serviceName)
+            }
         }
     }
 
@@ -467,6 +572,82 @@ class SpaRepository {
         val current = _appointments.value.toMutableList()
         current.removeAll { it.id == appointmentId }
         _appointments.value = current
+    }
+
+    // --- LỊCH SỬ GIAO DỊCH & HÓA ĐƠN ---
+    private val _transactions = MutableStateFlow(
+        listOf(
+            InvoiceTransactionRecord(
+                id = "TX-01",
+                invoiceCode = "SPA8829",
+                clientName = "Nguyễn Thu Hà",
+                clientPhone = "0912 345 678",
+                serviceName = "Whitening Facial Cao Cấp (Buổi 8/10)",
+                technicianName = "Thảo My",
+                time = "09:30",
+                date = "16/10/2026",
+                amount = 2025000L,
+                paymentMethod = "VietQR Chuyển Khoản",
+                isPaid = true
+            ),
+            InvoiceTransactionRecord(
+                id = "TX-02",
+                invoiceCode = "SPA102",
+                clientName = "Trần Bích Ngọc",
+                clientPhone = "0988 776 655",
+                serviceName = "Massage Body Đá Nóng Himalaya 90p",
+                technicianName = "Hương Giang",
+                time = "10:00",
+                date = "16/10/2026",
+                amount = 850000L,
+                paymentMethod = "VietQR Chuyển Khoản",
+                isPaid = true
+            ),
+            InvoiceTransactionRecord(
+                id = "TX-03",
+                invoiceCode = "SPA103",
+                clientName = "Lê Hoàng Yến",
+                clientPhone = "0909 112 233",
+                serviceName = "Chăm Sóc Da Chuyên Sâu Detox O2",
+                technicianName = "Lan Phương",
+                time = "13:30",
+                date = "16/10/2026",
+                amount = 650000L,
+                paymentMethod = "VietQR Chuyển Khoản",
+                isPaid = false
+            ),
+            InvoiceTransactionRecord(
+                id = "TX-04",
+                invoiceCode = "SPA104",
+                clientName = "Phạm Mai Anh",
+                clientPhone = "0933 456 789",
+                serviceName = "Triệt Lông Diode Laser Trẻ Hóa",
+                technicianName = "Thảo My",
+                time = "14:00",
+                date = "16/10/2026",
+                amount = 500000L,
+                paymentMethod = "Tiền mặt",
+                isPaid = false
+            ),
+            InvoiceTransactionRecord(
+                id = "TX-05",
+                invoiceCode = "SPA105",
+                clientName = "Vũ Thu Trang",
+                clientPhone = "0977 123 456",
+                serviceName = "Gội Đầu Dưỡng Sinh Thảo Dược 60p",
+                technicianName = "Hương Giang",
+                time = "15:30",
+                date = "16/10/2026",
+                amount = 350000L,
+                paymentMethod = "VietQR Chuyển Khoản",
+                isPaid = false
+            )
+        )
+    )
+    val transactions: Flow<List<InvoiceTransactionRecord>> = _transactions.asStateFlow()
+
+    fun getTransactionsForDate(dateStr: String): List<InvoiceTransactionRecord> {
+        return _transactions.value.filter { it.date == dateStr }
     }
 
     // --- THU NGÂN & TẠO MÃ VIETQR (LẤY TÀI KHOẢN TỪ STORE PROFILE) ---
@@ -512,7 +693,8 @@ class SpaRepository {
             selectedBank = SupportedBanks[0], // Vietcombank
             accountNumber = "1023456789",
             accountHolder = "SPA CARE WELLNESS CENTER",
-            defaultMemo = "SPACARE"
+            defaultMemo = "SPACARE",
+            appointmentId = "APT-101"
         )
     )
     val currentInvoice: Flow<CheckoutInvoice> = _currentInvoice.asStateFlow()
@@ -536,11 +718,43 @@ class SpaRepository {
     fun markInvoiceAsPaid() {
         val current = _currentInvoice.value
         val now = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
+        val timeOnly = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        val dateOnly = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
+
         _currentInvoice.value = current.copy(
             paymentStatus = PaymentStatus.PAYMENT_SUCCESS,
             transactionRef = "CK-${System.currentTimeMillis().toString().takeLast(6)}",
             paidAt = now
         )
+
+        // Các lịch hẹn đang làm, đã hẹn sau khi chuyển sang thanh toán và xác nhận nhận tiền thì tự động update thành hoàn thành
+        current.appointmentId?.let { apptId ->
+            updateAppointmentStatus(apptId, AppointmentStatus.COMPLETED)
+        } ?: run {
+            val matchedAppt = _appointments.value.find {
+                it.clientName == current.clientName && it.date == dateOnly &&
+                it.status != AppointmentStatus.COMPLETED && it.status != AppointmentStatus.CANCELLED
+            }
+            if (matchedAppt != null) {
+                updateAppointmentStatus(matchedAppt.id, AppointmentStatus.COMPLETED)
+            }
+        }
+
+        // Lưu vào lịch sử giao dịch hóa đơn
+        val newTx = InvoiceTransactionRecord(
+            id = "TX-${System.currentTimeMillis()}",
+            invoiceCode = current.invoiceCode,
+            clientName = current.clientName,
+            clientPhone = current.clientPhone,
+            serviceName = current.items.joinToString(", ") { it.name },
+            technicianName = "Thảo My",
+            time = timeOnly,
+            date = dateOnly,
+            amount = current.finalTotal,
+            paymentMethod = "VietQR Chuyển Khoản",
+            isPaid = true
+        )
+        _transactions.value = listOf(newTx) + _transactions.value
     }
 
     fun resetInvoice() {
@@ -559,7 +773,8 @@ class SpaRepository {
             selectedBank = store.selectedBank,
             accountNumber = store.accountNumber,
             accountHolder = store.accountHolder,
-            defaultMemo = store.defaultMemo
+            defaultMemo = store.defaultMemo,
+            appointmentId = null
         )
     }
 
@@ -585,7 +800,8 @@ class SpaRepository {
             selectedBank = store.selectedBank,
             accountNumber = store.accountNumber,
             accountHolder = store.accountHolder,
-            defaultMemo = store.defaultMemo
+            defaultMemo = store.defaultMemo,
+            appointmentId = appointment.id
         )
     }
 

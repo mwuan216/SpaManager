@@ -13,7 +13,8 @@ data class Client(
     val contraindications: List<String>, // Chống chỉ định y khoa (ví dụ: đang mang thai, tiêm botox < 2 tuần)
     val treatmentPackages: List<TreatmentPackage>,
     val serviceHistory: List<ServiceRecord>,
-    val beforeAfterComparisons: List<BeforeAfterComparison>
+    val beforeAfterComparisons: List<BeforeAfterComparison>,
+    val sessionPhotos: List<SessionPhotoRecord> = emptyList()
 )
 
 enum class VipTier(val title: String) {
@@ -52,5 +53,15 @@ data class ServiceRecord(
     val room: String,
     val cost: Long,
     val feedback: String? = null
+)
+
+data class SessionPhotoRecord(
+    val id: String,
+    val sessionNumber: Int,
+    val title: String,
+    val date: String,
+    val imageUrl: String,
+    val notes: String = "",
+    val technicianName: String = ""
 )
 

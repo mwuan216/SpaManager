@@ -1,5 +1,6 @@
 package com.spacare.manager.feature.settings
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,6 +28,11 @@ import coil.compose.AsyncImage
 import com.spacare.manager.R
 import com.spacare.manager.core.designsystem.theme.*
 import com.spacare.manager.domain.model.*
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import com.spacare.manager.core.license.LicenseManager
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -34,7 +40,8 @@ enum class SettingsTab(val title: String) {
     BANK("Ngân Hàng & VietQR"),
     PACKAGES("Gói Liệu Trình"),
     TECHNICIANS("Đội Ngũ KTV"),
-    PROFILE("Thông Tin Spa")
+    PROFILE("Thông Tin Spa"),
+    LICENSE("Bản Quyền")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,6 +81,17 @@ fun StoreSettingsScreen(
     var showAddTechDialog by remember { mutableStateOf(false) }
     var techToEdit by remember { mutableStateOf<TechnicianStaff?>(null) }
     var snackbarMessage by remember { mutableStateOf<String?>(null) }
+
+    // State quản lý bản quyền & key kích hoạt
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val licenseManager = remember { LicenseManager.getInstance(context) }
+    var licenseStatus by remember { mutableStateOf(licenseManager.getLicenseStatus()) }
+    var inputLicenseKey by remember { mutableStateOf("") }
+    var licenseError by remember { mutableStateOf<String?>(null) }
+    var friendKeysList by remember {
+        mutableStateOf(LicenseManager.PRESET_FRIEND_KEYS.toMutableList())
+    }
 
     Scaffold(
         topBar = {
@@ -569,6 +587,340 @@ fun StoreSettingsScreen(
                                     Icon(Icons.Default.Check, contentDescription = null, tint = Color.White)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("Lưu Thông Tin Cơ Sở", color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ==========================================
+                // TAB 5: BẢN QUYỀN & KÍCH HOẠT
+                // ==========================================
+                if (activeTab == SettingsTab.LICENSE) {
+                    // 1. Thẻ trạng thái bản quyền
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(18.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (licenseStatus.isActivated) Icons.Default.Verified else Icons.Default.Shield,
+                                            contentDescription = null,
+                                            tint = if (licenseStatus.isActivated) SuccessGreen else SpaGoldPrimary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Text(
+                                            text = "Trạng Thái Bản Quyền",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CharcoalTextPrimary
+                                        )
+                                    }
+
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = when {
+                                            licenseStatus.isActivated -> SuccessGreenContainer
+                                            licenseStatus.isExpired -> AllergyAlertContainer
+                                            else -> SageGreenContainer
+                                        }
+                                    ) {
+                                        Text(
+                                            text = when {
+                                                licenseStatus.isActivated -> "ĐÃ KÍCH HOẠT PRO"
+                                                licenseStatus.isExpired -> "HẾT HẠN DÙNG THỬ"
+                                                else -> "DÙNG THỬ 3 NGÀY"
+                                            },
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = when {
+                                                licenseStatus.isActivated -> SuccessGreen
+                                                licenseStatus.isExpired -> AllergyAlertRed
+                                                else -> SageGreenPrimary
+                                            }
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = licenseStatus.statusTitle,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (licenseStatus.isActivated) SuccessGreen else CharcoalTextPrimary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = licenseStatus.statusDescription,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = CharcoalTextSecondary
+                                )
+
+                                if (licenseStatus.isActivated) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    HorizontalDivider(color = WarmBeigeBorder.copy(alpha = 0.5f))
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Key đang dùng:", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
+                                        Text(licenseStatus.activatedKey, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = SageGreenPrimary)
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Thời điểm kích hoạt:", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
+                                        Text(licenseStatus.activatedDate, style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    OutlinedButton(
+                                        onClick = {
+                                            licenseManager.deactivateLicense()
+                                            licenseStatus = licenseManager.getLicenseStatus()
+                                            Toast.makeText(context, "Đã hủy kích hoạt bản quyền", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("Đổi / Hủy Kích Hoạt Key Này", color = AllergyAlertRed)
+                                    }
+                                } else {
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    OutlinedTextField(
+                                        value = inputLicenseKey,
+                                        onValueChange = {
+                                            inputLicenseKey = it.uppercase()
+                                            licenseError = null
+                                        },
+                                        label = { Text("Nhập Key kích hoạt bản quyền") },
+                                        placeholder = { Text("Ví dụ: SPACARE-PRO-2026-8888") },
+                                        leadingIcon = { Icon(Icons.Default.Key, contentDescription = null, tint = SageGreenPrimary) },
+                                        trailingIcon = {
+                                            IconButton(onClick = {
+                                                val clip = clipboardManager.getText()?.text
+                                                if (!clip.isNullOrBlank()) {
+                                                    inputLicenseKey = clip.trim().uppercase()
+                                                    licenseError = null
+                                                }
+                                            }) {
+                                                Icon(Icons.Default.ContentPaste, contentDescription = "Dán", tint = SageGreenPrimary)
+                                            }
+                                        },
+                                        isError = licenseError != null,
+                                        supportingText = {
+                                            if (licenseError != null) {
+                                                Text(licenseError!!, color = AllergyAlertRed)
+                                            } else {
+                                                Text("Định dạng: SPACARE-XXXX-XXXX-XXXX")
+                                            }
+                                        },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Button(
+                                        onClick = {
+                                            if (inputLicenseKey.isBlank()) {
+                                                licenseError = "Vui lòng nhập Key bản quyền."
+                                                return@Button
+                                            }
+                                            val ok = licenseManager.activateLicense(inputLicenseKey)
+                                            if (ok) {
+                                                licenseStatus = licenseManager.getLicenseStatus()
+                                                inputLicenseKey = ""
+                                                Toast.makeText(context, "Kích hoạt bản quyền PRO trọn đời thành công!", Toast.LENGTH_LONG).show()
+                                            } else {
+                                                licenseError = "Key kích hoạt không hợp lệ. Vui lòng kiểm tra lại."
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = SageGreenPrimary,
+                                            contentColor = Color.White
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Kích Hoạt Bản Quyền", color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. Thẻ Tạo & Quản lý Key Gửi Cho Bạn Bè
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(18.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(Icons.Default.Share, contentDescription = null, tint = SpaGoldPrimary)
+                                        Text(
+                                            text = "Tạo Key Cho Bạn Bè",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CharcoalTextPrimary
+                                        )
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            val newKey = LicenseManager.generateNewFriendKey()
+                                            friendKeysList = (listOf(newKey) + friendKeysList).distinct().toMutableList()
+                                            clipboardManager.setText(AnnotatedString(newKey))
+                                            Toast.makeText(context, "Đã tạo & sao chép key: $newKey", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = SpaGoldPrimary,
+                                            contentColor = Color.White
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Tạo Key Mới", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Bấm nút 'Tạo Key Mới' hoặc chọn một trong các mã hợp lệ bên dưới để gửi cho bạn bè trải nghiệm và sử dụng bản quyền SpaCare Manager:",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = CharcoalTextSecondary
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    friendKeysList.forEach { keyStr ->
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = WarmBeigeSurfaceVariant,
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, WarmBeigeBorder)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = keyStr,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontFamily = FontFamily.Monospace,
+                                                        color = CharcoalTextPrimary,
+                                                        fontSize = 13.sp
+                                                    )
+                                                    Text(
+                                                        text = "Bản quyền trọn đời PRO",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = SageGreenPrimary
+                                                    )
+                                                }
+
+                                                IconButton(
+                                                    onClick = {
+                                                        clipboardManager.setText(AnnotatedString(keyStr))
+                                                        Toast.makeText(context, "Đã copy key: $keyStr", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.ContentCopy,
+                                                        contentDescription = "Sao chép key",
+                                                        tint = SageGreenPrimary,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Thẻ Công Cụ Kiểm Thử (Developer / Testing Tools)
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(18.dp)) {
+                                Text(
+                                    text = "Công Cụ Thử Nghiệm Hạn Dùng Thử",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CharcoalTextPrimary
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Dùng các nút bên dưới để kiểm tra giao diện khi hết hạn 3 ngày hoặc làm mới lại thời gian dùng thử:",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = CharcoalTextSecondary
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            licenseManager.simulateTrialExpired()
+                                            licenseStatus = licenseManager.getLicenseStatus()
+                                            Toast.makeText(context, "Đã kích hoạt trạng thái: HẾT HẠN DÙNG THỬ 3 NGÀY!", Toast.LENGTH_LONG).show()
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Mô phỏng hết hạn", fontSize = 11.sp, color = AllergyAlertRed)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            licenseManager.resetTrial()
+                                            licenseStatus = licenseManager.getLicenseStatus()
+                                            Toast.makeText(context, "Đã đặt lại 3 ngày dùng thử mới!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Đặt lại dùng thử", fontSize = 11.sp, color = SageGreenPrimary)
+                                    }
                                 }
                             }
                         }

@@ -29,6 +29,7 @@ import androidx.core.content.FileProvider
 import com.spacare.manager.R
 import com.spacare.manager.core.designsystem.theme.*
 import com.spacare.manager.domain.model.DashboardMetrics
+import com.spacare.manager.domain.model.InvoiceTransactionRecord
 import java.io.File
 import java.io.FileOutputStream
 import java.text.NumberFormat
@@ -42,6 +43,7 @@ import java.util.TimeZone
 fun RevenueDashboardScreen(
     metrics: DashboardMetrics,
     selectedDate: String = "16/10/2026",
+    transactions: List<InvoiceTransactionRecord> = emptyList(),
     onDateSelected: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -59,6 +61,10 @@ fun RevenueDashboardScreen(
         "13/10/2026" to "Thứ 3 (13/10)",
         "12/10/2026" to "Thứ 2 (12/10)"
     )
+
+    val dayTransactions = remember(transactions, selectedDate) {
+        transactions.filter { it.date == selectedDate }
+    }
 
     Scaffold(
         topBar = {
@@ -484,6 +490,164 @@ fun RevenueDashboardScreen(
                                             fontWeight = FontWeight.Bold,
                                             color = SpaGoldPrimary
                                         )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 6. Lịch sử hóa đơn & Giao dịch hôm nay
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Receipt,
+                                    contentDescription = null,
+                                    tint = SageGreenPrimary
+                                )
+                                Text(
+                                    text = "Lịch Sử Hóa Đơn & Giao Dịch",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CharcoalTextPrimary
+                                )
+                            }
+
+                            Surface(
+                                shape = CircleShape,
+                                color = if (dayTransactions.isNotEmpty()) SageGreenContainer else WarmBeigeSurfaceVariant
+                            ) {
+                                Text(
+                                    text = "${dayTransactions.size} đơn",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (dayTransactions.isNotEmpty()) SageGreenPrimary else CharcoalTextMuted
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Danh sách hóa đơn và giao dịch phát sinh trong ngày $selectedDate:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = CharcoalTextSecondary
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (dayTransactions.isEmpty()) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                color = WarmBeigeSurfaceVariant
+                            ) {
+                                Text(
+                                    text = "Chưa có hóa đơn hoặc giao dịch nào được ghi nhận cho ngày $selectedDate.",
+                                    modifier = Modifier.padding(14.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = CharcoalTextMuted,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                dayTransactions.forEach { tx ->
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = WarmBeigeSurfaceVariant,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, WarmBeigeBorder)
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "#${tx.invoiceCode}",
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = SageGreenPrimary
+                                                    )
+                                                    Text(
+                                                        text = "• ${tx.time}",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = CharcoalTextMuted
+                                                    )
+                                                }
+
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = if (tx.isPaid) SuccessGreenContainer else SpaGoldContainer
+                                                ) {
+                                                    Text(
+                                                        text = if (tx.isPaid) "Đã thanh toán" else "Chờ thanh toán",
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (tx.isPaid) SuccessGreen else SpaGoldPrimary
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(6.dp))
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = "${tx.clientName} (${tx.clientPhone})",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = CharcoalTextPrimary
+                                                    )
+                                                    Text(
+                                                        text = "${tx.serviceName} • KTV: ${tx.technicianName}",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = CharcoalTextSecondary
+                                                    )
+                                                }
+
+                                                Column(horizontalAlignment = Alignment.End) {
+                                                    Text(
+                                                        text = if (tx.amount == 0L) "Trừ gói" else "${currencyFormatter.format(tx.amount)} đ",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (tx.isPaid) SuccessGreen else SpaGoldPrimary
+                                                    )
+                                                    Text(
+                                                        text = tx.paymentMethod,
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = CharcoalTextMuted
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

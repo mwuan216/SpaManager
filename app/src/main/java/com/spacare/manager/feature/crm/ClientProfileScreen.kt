@@ -1,9 +1,17 @@
 package com.spacare.manager.feature.crm
 
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
@@ -14,33 +22,50 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.spacare.manager.core.designsystem.theme.*
 import com.spacare.manager.domain.model.*
 import com.spacare.manager.feature.crm.components.AllergyAlertCard
 import com.spacare.manager.feature.crm.components.BeforeAfterGalleryCard
 import com.spacare.manager.feature.crm.components.ClientFormDialog
+import com.spacare.manager.feature.crm.components.SessionPhotoProgressionCard
+import com.spacare.manager.feature.crm.components.TakeOrUploadPhotoDialog
 import com.spacare.manager.feature.crm.components.TreatmentPackageCard
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientProfileScreen(
     client: Client,
     onBackClick: () -> Unit,
-    onBookAppointmentClick: () -> Unit,
+    onBookAppointmentClick: () -> Unit = {},
     onCheckoutClick: () -> Unit,
     onUpdateClient: (Client) -> Unit,
     onDeleteClient: (String) -> Unit,
     onCheckInSession: (packageId: String) -> Unit,
     onAddTreatmentPackage: (TreatmentPackage) -> Unit,
     onAddBeforeAfter: (BeforeAfterComparison) -> Unit,
+    onAddAppointment: (Appointment) -> Unit = {},
+    onAddSessionPhoto: (SessionPhotoRecord) -> Unit = {},
+    onUpdateSessionPhoto: (SessionPhotoRecord) -> Unit = {},
+    catalogPackages: List<SpaServicePackage> = emptyList(),
+    technicians: List<TechnicianStaff> = emptyList(),
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showAddPackageDialog by remember { mutableStateOf(false) }
     var showAddBeforeAfterDialog by remember { mutableStateOf(false) }
+    var showBookAppointmentDialog by remember { mutableStateOf(false) }
+    var showAddSessionPhotoDialog by remember { mutableStateOf(false) }
+    var photoToRetake by remember { mutableStateOf<SessionPhotoRecord?>(null) }
 
     Scaffold(
         topBar = {
@@ -166,7 +191,7 @@ fun ClientProfileScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(
-                                onClick = onBookAppointmentClick,
+                                onClick = { showBookAppointmentDialog = true },
                                 modifier = Modifier.weight(1f),
                                 shape = MaterialTheme.shapes.small,
                                 colors = ButtonDefaults.buttonColors(
@@ -306,43 +331,31 @@ fun ClientProfileScreen(
                 }
             }
 
-            // 5. Thư viện Before & After
+            // 5. Thư viện Tiến trình ảnh từng buổi & So sánh Trước - Sau
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                SessionPhotoProgressionCard(
+                    photos = client.sessionPhotos,
+                    onAddPhotoClick = {
+                        photoToRetake = null
+                        showAddSessionPhotoDialog = true
+                    },
+                    onRetakePhotoClick = { photo ->
+                        photoToRetake = photo
+                        showAddSessionPhotoDialog = true
+                    }
+                )
+            }
+
+            if (client.beforeAfterComparisons.isNotEmpty()) {
+                item {
                     Text(
-                        text = "Hồ Sơ Hình Ảnh Trước & Sau",
+                        text = "So Sánh Side-by-Side (Trước & Sau)",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = CharcoalTextPrimary
                     )
-                    TextButton(onClick = { showAddBeforeAfterDialog = true }) {
-                        Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Thêm ảnh", color = SageGreenPrimary)
-                    }
                 }
-            }
 
-            if (client.beforeAfterComparisons.isEmpty()) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium,
-                        colors = CardDefaults.cardColors(containerColor = WarmBeigeSurfaceVariant)
-                    ) {
-                        Text(
-                            text = "Chưa có hình ảnh so sánh trước & sau cho khách hàng này.",
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = CharcoalTextMuted
-                        )
-                    }
-                }
-            } else {
                 items(client.beforeAfterComparisons.size) { index ->
                     BeforeAfterGalleryCard(comparison = client.beforeAfterComparisons[index])
                 }
@@ -578,4 +591,297 @@ fun ClientProfileScreen(
             }
         )
     }
+
+    // Modal Chụp / Tải ảnh tiến trình từng buổi
+    if (showAddSessionPhotoDialog) {
+        TakeOrUploadPhotoDialog(
+            existingPhoto = photoToRetake,
+            onDismissRequest = {
+                showAddSessionPhotoDialog = false
+                photoToRetake = null
+            },
+            onSavePhoto = { record ->
+                if (photoToRetake != null) {
+                    onUpdateSessionPhoto(record)
+                    Toast.makeText(context, "Đã cập nhật ảnh ${record.title}!", Toast.LENGTH_SHORT).show()
+                } else {
+                    onAddSessionPhoto(record)
+                    Toast.makeText(context, "Đã lưu ảnh ${record.title} thành công!", Toast.LENGTH_SHORT).show()
+                }
+                showAddSessionPhotoDialog = false
+                photoToRetake = null
+            }
+        )
+    }
+
+    // Modal Đặt Lịch Hẹn Ngay Tại Màn Khách Hàng
+    if (showBookAppointmentDialog) {
+        CreateAppointmentForClientDialog(
+            client = client,
+            catalogPackages = catalogPackages,
+            technicians = technicians,
+            onDismissRequest = { showBookAppointmentDialog = false },
+            onSave = { newAppt ->
+                onAddAppointment(newAppt)
+                showBookAppointmentDialog = false
+                Toast.makeText(context, "Đã tạo lịch hẹn mới cho ${client.fullName} lúc ${newAppt.startTime} ngày ${newAppt.date}!", Toast.LENGTH_LONG).show()
+            }
+        )
+    }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CreateAppointmentForClientDialog(
+    client: Client,
+    catalogPackages: List<SpaServicePackage>,
+    technicians: List<TechnicianStaff>,
+    onDismissRequest: () -> Unit,
+    onSave: (Appointment) -> Unit
+) {
+    var serviceName by remember {
+        mutableStateOf(
+            client.treatmentPackages.firstOrNull { it.remainingSessions > 0 }?.name
+                ?: catalogPackages.firstOrNull()?.name
+                ?: "Chăm Sóc Da Trẻ Hóa Chuyên Sâu"
+        )
+    }
+    var staffName by remember {
+        mutableStateOf(
+            technicians.firstOrNull()?.name ?: "Thảo My"
+        )
+    }
+    var roomName by remember { mutableStateOf("Phòng VIP 01") }
+    var appointmentDate by remember {
+        mutableStateOf(SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()))
+    }
+    var startTime by remember { mutableStateOf("09:30") }
+    var durationMinutes by remember { mutableStateOf(75) }
+    var isPackageSession by remember {
+        mutableStateOf(client.treatmentPackages.any { it.name == serviceName && it.remainingSessions > 0 })
+    }
+    var customPriceStr by remember { mutableStateOf("650000") }
+    var showDatePickerDialog by remember { mutableStateOf(false) }
+
+    val roomOptions = listOf("Phòng VIP 01", "Phòng VIP 02", "Phòng Chăm Sóc 03", "Phòng Dưỡng Sinh Sen", "Phòng Laser 01")
+    val timeOptions = listOf("08:30", "09:30", "10:30", "11:30", "13:30", "14:30", "15:30", "16:30", "17:30", "18:30")
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = {
+            Column {
+                Text(
+                    text = "Đặt Lịch Hẹn Mới",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Khách hàng: ${client.fullName} • ${client.phone}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SageGreenPrimary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        },
+        containerColor = WarmBeigeSurface,
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Chọn ngày hẹn
+                OutlinedTextField(
+                    value = appointmentDate,
+                    onValueChange = { appointmentDate = it },
+                    label = { Text("Ngày hẹn (dd/MM/yyyy)") },
+                    trailingIcon = {
+                        IconButton(onClick = { showDatePickerDialog = true }) {
+                            Icon(Icons.Default.DateRange, contentDescription = "Chọn ngày", tint = SageGreenPrimary)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                // Chọn giờ bắt đầu
+                Text("Giờ bắt đầu hẹn:", style = MaterialTheme.typography.labelSmall, color = CharcoalTextSecondary)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(timeOptions) { t ->
+                        FilterChip(
+                            selected = startTime == t,
+                            onClick = { startTime = t },
+                            label = { Text(t, fontSize = 12.sp) }
+                        )
+                    }
+                }
+
+                // Dịch vụ / Liệu trình
+                Text("Dịch vụ thực hiện:", style = MaterialTheme.typography.labelSmall, color = CharcoalTextSecondary)
+                if (client.treatmentPackages.isNotEmpty()) {
+                    Text("• Gói liệu trình của khách:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = SageGreenPrimary)
+                    client.treatmentPackages.forEach { pkg ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(
+                                    width = if (serviceName == pkg.name) 1.5.dp else 1.dp,
+                                    color = if (serviceName == pkg.name) SageGreenPrimary else WarmBeigeBorder,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable {
+                                    serviceName = pkg.name
+                                    isPackageSession = true
+                                },
+                            color = if (serviceName == pkg.name) SageGreenContainer.copy(alpha = 0.5f) else WarmBeigeSurfaceVariant
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(pkg.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                    Text("Còn ${pkg.remainingSessions} buổi • Trừ gói (0đ)", style = MaterialTheme.typography.bodySmall, color = SageGreenPrimary)
+                                }
+                                if (serviceName == pkg.name) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SageGreenPrimary, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text("• Dịch vụ đơn lẻ khác:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = CharcoalTextSecondary)
+                catalogPackages.forEach { cat ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(
+                                width = if (serviceName == cat.name) 1.5.dp else 1.dp,
+                                color = if (serviceName == cat.name) SageGreenPrimary else WarmBeigeBorder,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                serviceName = cat.name
+                                isPackageSession = false
+                                customPriceStr = cat.price.toString()
+                                durationMinutes = cat.durationMinutes
+                            },
+                        color = if (serviceName == cat.name) SageGreenContainer.copy(alpha = 0.5f) else WarmBeigeSurfaceVariant
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(cat.name, style = MaterialTheme.typography.labelMedium)
+                                Text("${cat.price / 1000}k • ${cat.durationMinutes}p", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
+                            }
+                            if (serviceName == cat.name) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SageGreenPrimary, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+                }
+
+                // Chọn KTV phụ trách
+                Text("Kỹ thuật viên phụ trách:", style = MaterialTheme.typography.labelSmall, color = CharcoalTextSecondary)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val staffList = technicians.map { it.name }.ifEmpty { listOf("Thảo My", "Hương Giang", "Lan Phương") }
+                    items(staffList) { staff ->
+                        FilterChip(
+                            selected = staffName == staff,
+                            onClick = { staffName = staff },
+                            label = { Text(staff, fontSize = 12.sp) }
+                        )
+                    }
+                }
+
+                // Chọn Phòng
+                Text("Phòng trị liệu:", style = MaterialTheme.typography.labelSmall, color = CharcoalTextSecondary)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(roomOptions) { room ->
+                        FilterChip(
+                            selected = roomName == room,
+                            onClick = { roomName = room },
+                            label = { Text(room, fontSize = 11.sp) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val calculatedPrice = if (isPackageSession) 0L else (customPriceStr.toLongOrNull() ?: 500000L)
+                    val endHourInt = (startTime.split(":").firstOrNull()?.toIntOrNull() ?: 9) + 1
+                    val endMinStr = startTime.split(":").getOrNull(1) ?: "00"
+                    val calculatedEndTime = String.format("%02d:%s", endHourInt, endMinStr)
+
+                    val newAppt = Appointment(
+                        id = "APT-" + (1000..9999).random(),
+                        clientName = client.fullName,
+                        clientPhone = client.phone,
+                        serviceName = serviceName,
+                        durationMinutes = durationMinutes,
+                        staffName = staffName,
+                        roomName = roomName,
+                        startTime = startTime,
+                        endTime = calculatedEndTime,
+                        date = appointmentDate.trim(),
+                        status = AppointmentStatus.CONFIRMED,
+                        price = calculatedPrice,
+                        reminderSent = true
+                    )
+                    onSave(newAppt)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary, contentColor = Color.White)
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Lưu & Đặt Lịch", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismissRequest) {
+                Text("Hủy")
+            }
+        }
+    )
+
+    if (showDatePickerDialog) {
+        val datePickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDatePickerDialog = false },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply {
+                                timeZone = TimeZone.getTimeZone("UTC")
+                            }
+                            appointmentDate = sdf.format(Date(millis))
+                        }
+                        showDatePickerDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary, contentColor = Color.White)
+                ) {
+                    Text("Chọn", color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDatePickerDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+

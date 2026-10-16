@@ -103,7 +103,8 @@ data class CheckoutInvoice(
     val selectedBank: BankOption = SupportedBanks[0],
     val accountNumber: String = "1023456789",
     val accountHolder: String = "SPA CARE WELLNESS CENTER",
-    val defaultMemo: String = "SPACARE"
+    val defaultMemo: String = "SPACARE",
+    val appointmentId: String? = null
 ) {
     val subtotal: Long get() = items.sumOf { it.totalPrice }
     val finalTotal: Long get() = (subtotal - discountAmount + tipAmount).coerceAtLeast(0)
@@ -122,3 +123,18 @@ data class CheckoutInvoice(
             )
         }
 }
+
+data class InvoiceTransactionRecord(
+    val id: String,
+    val invoiceCode: String,
+    val clientName: String,
+    val clientPhone: String,
+    val serviceName: String,
+    val technicianName: String,
+    val time: String,
+    val date: String,
+    val amount: Long,
+    val paymentMethod: String = "VietQR Chuyển Khoản", // VietQR Chuyển Khoản / Tiền mặt
+    val isPaid: Boolean = true
+)
+
