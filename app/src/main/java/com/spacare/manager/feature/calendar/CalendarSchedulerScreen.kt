@@ -64,7 +64,11 @@ fun CalendarSchedulerScreen(
 ) {
     val context = LocalContext.current
     var selectedViewMode by remember { mutableStateOf(CalendarViewMode.TIMELINE) }
-    var selectedDateStr by remember { mutableStateOf("16/10/2026") }
+    val todayDateStr = remember {
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        sdf.format(Date())
+    }
+    var selectedDateStr by remember { mutableStateOf(todayDateStr) }
     var showCalendarDatePicker by remember { mutableStateOf(false) }
 
     var selectedStaffFilter by remember { mutableStateOf<String?>(null) }
@@ -73,19 +77,21 @@ fun CalendarSchedulerScreen(
     var showCreateDialog by remember { mutableStateOf(false) }
     var activeAppointmentDetail by remember { mutableStateOf<Appointment?>(null) }
 
-    // Dải ngày động quanh ngày đang chọn (-7 ngày đến +7 ngày)
-    val daysList = remember(selectedDateStr) {
-        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-        val currentDate = try {
-            sdf.parse(selectedDateStr) ?: Date()
-        } catch (e: Exception) {
-            Date()
-        }
+    // 7 ngày của tuần hiện tại (Thứ 2 đến Chủ Nhật)
+    val daysList = remember {
+        val fullSdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val dayMonthSdf = SimpleDateFormat("dd/MM", Locale.getDefault())
+
         val cal = Calendar.getInstance()
-        (-7..7).map { offset ->
-            cal.time = currentDate
-            cal.add(Calendar.DAY_OF_YEAR, offset)
-            val dow = when (cal.get(Calendar.DAY_OF_WEEK)) {
+        val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+        val daysFromMonday = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
+        cal.add(Calendar.DAY_OF_YEAR, -daysFromMonday)
+        val mondayCal = cal.clone() as Calendar
+
+        (0..6).map { offset ->
+            val c = mondayCal.clone() as Calendar
+            c.add(Calendar.DAY_OF_YEAR, offset)
+            val dow = when (c.get(Calendar.DAY_OF_WEEK)) {
                 Calendar.MONDAY -> "T2"
                 Calendar.TUESDAY -> "T3"
                 Calendar.WEDNESDAY -> "T4"
@@ -95,9 +101,13 @@ fun CalendarSchedulerScreen(
                 Calendar.SUNDAY -> "CN"
                 else -> ""
             }
-            val dom = cal.get(Calendar.DAY_OF_MONTH).toString()
-            val full = sdf.format(cal.time)
-            DayItem(dow, dom, full)
+            val dayMonth = dayMonthSdf.format(c.time)
+            val full = fullSdf.format(c.time)
+            DayItem(
+                dayOfWeek = dow,
+                dayNumber = dayMonth,
+                fullDate = full
+            )
         }
     }
 
@@ -202,7 +212,7 @@ fun CalendarSchedulerScreen(
 
                     Surface(
                         modifier = Modifier
-                            .width(54.dp)
+                            .width(62.dp)
                             .height(68.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .clickable {
@@ -224,10 +234,10 @@ fun CalendarSchedulerScreen(
                                 color = if (isSelected) Color.White.copy(alpha = 0.95f) else CharcoalTextSecondary,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
                             Text(
                                 text = day.dayNumber,
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isSelected) Color.White else CharcoalTextPrimary
                             )
