@@ -10,6 +10,17 @@
 
 ---
 
+### 📥 Tải Xuống Ứng Dụng (Download APK)
+
+| Phiên Bản | File Cài Đặt | Mô Tả | Link Tải Trực Tiếp |
+|:---|:---|:---|:---|
+| 🟢 **Debug APK** | `app-debug.apk` | Bản test đầy đủ tính năng & log gỡ lỗi (Cập nhật sau mỗi commit) | [👉 **Tải app-debug.apk**](https://github.com/mwuan216/SpaManager/raw/main/apk/app-debug.apk) |
+| 🚀 **Release APK** | `app-release.apk` | Bản chính thức tối ưu hiệu năng | *(Phát hành khi có yêu cầu release)* |
+
+> 💡 **Hướng dẫn cài đặt trên Android:** Tải file APK về điện thoại ➔ Mở file ➔ Cho phép "Cài đặt ứng dụng không rõ nguồn gốc" (Install unknown apps) nếu được hỏi ➔ Bấm **Cài đặt**.
+
+---
+
 ## 🌟 Tính Năng Nổi Bật
 
 ### 1. 📇 Spa CRM & Quản Lý Liệu Trình Chuyên Sâu
@@ -84,7 +95,7 @@ SpaManager/
 .\gradlew assembleDebug
 ```
 File APK sau khi build hoàn tất sẽ nằm tại:
-`app/build/outputs/apk/debug/app-debug.apk`
+`app/build/outputs/apk/debug/app-debug.apk` hoặc tại thư mục `apk/app-debug.apk` trong repo.
 
 ### 2. Chạy ứng dụng trên Android Studio:
 1. Mở thư mục dự án bằng Android Studio (Ladybug 2024.2+ hoặc mới hơn).
