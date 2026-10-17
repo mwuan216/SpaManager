@@ -308,7 +308,7 @@ fun SessionPhotoProgressionCard(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Ảnh Tiến Trình Từng Buổi",
+                            text = "Ảnh Tình Trạng Qua Các Buổi",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = CharcoalTextPrimary,
@@ -316,7 +316,7 @@ fun SessionPhotoProgressionCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "Lướt ngang theo dõi thay đổi",
+                            text = "Theo dõi chuyển biến qua từng buổi",
                             style = MaterialTheme.typography.bodySmall,
                             color = CharcoalTextSecondary,
                             maxLines = 1,

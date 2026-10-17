@@ -28,8 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spacare.manager.core.designsystem.theme.*
 import com.spacare.manager.domain.model.*
-import com.spacare.manager.feature.crm.components.AllergyAlertCard
-import com.spacare.manager.feature.crm.components.BeforeAfterGalleryCard
 import com.spacare.manager.feature.crm.components.ClientFormDialog
 import com.spacare.manager.feature.crm.components.SessionPhotoProgressionCard
 import com.spacare.manager.feature.crm.components.TakeOrUploadPhotoDialog
@@ -50,7 +48,7 @@ fun ClientProfileScreen(
     onDeleteClient: (String) -> Unit,
     onCheckInSession: (packageId: String) -> Unit,
     onAddTreatmentPackage: (TreatmentPackage) -> Unit,
-    onAddBeforeAfter: (BeforeAfterComparison) -> Unit,
+    onAddBeforeAfter: (BeforeAfterComparison) -> Unit = {},
     onAddAppointment: (Appointment) -> Unit = {},
     onAddSessionPhoto: (SessionPhotoRecord) -> Unit = {},
     onUpdateSessionPhoto: (SessionPhotoRecord) -> Unit = {},
@@ -62,7 +60,6 @@ fun ClientProfileScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showAddPackageDialog by remember { mutableStateOf(false) }
-    var showAddBeforeAfterDialog by remember { mutableStateOf(false) }
     var showBookAppointmentDialog by remember { mutableStateOf(false) }
     var showAddSessionPhotoDialog by remember { mutableStateOf(false) }
     var photoToRetake by remember { mutableStateOf<SessionPhotoRecord?>(null) }
@@ -219,87 +216,34 @@ fun ClientProfileScreen(
                 }
             }
 
-            // 2. Thẻ Cảnh báo dị ứng & Chống chỉ định
-            if (client.allergyAlerts.isNotEmpty() || client.contraindications.isNotEmpty()) {
-                item {
-                    AllergyAlertCard(
-                        allergies = client.allergyAlerts,
-                        contraindications = client.contraindications
-                    )
-                }
-            }
-
-            // 3. Tình trạng da & Ghi chú da liễu
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Face,
-                                contentDescription = null,
-                                tint = SageGreenPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = "Tình Trạng Da & Hồ Sơ Y Khoa",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = CharcoalTextPrimary
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = WarmBeigeSurfaceVariant
-                        ) {
-                            Text(
-                                text = "Phân loại: ${client.skinType}",
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = CharcoalTextPrimary
-                            )
-                        }
-
-                        if (client.skinConditionNotes.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = client.skinConditionNotes,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = CharcoalTextSecondary
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 4. Gói liệu trình đang sử dụng (Package Tracking)
+            // 2. Gói Liệu Trình
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Gói Liệu Trình Đang Sử Dụng",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = CharcoalTextPrimary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Spa,
+                            contentDescription = null,
+                            tint = SageGreenPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Gói Liệu Trình",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = CharcoalTextPrimary
+                        )
+                    }
                     TextButton(onClick = { showAddPackageDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = SageGreenPrimary)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Thêm gói", color = SageGreenPrimary)
+                        Text("Thêm gói", color = SageGreenPrimary, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -331,47 +275,44 @@ fun ClientProfileScreen(
                 }
             }
 
-            // 5. Thư viện Tiến trình ảnh từng buổi & So sánh Trước - Sau
+            // 3. Dịch Vụ Đã Làm
             item {
-                SessionPhotoProgressionCard(
-                    photos = client.sessionPhotos,
-                    onAddPhotoClick = {
-                        photoToRetake = null
-                        showAddSessionPhotoDialog = true
-                    },
-                    onRetakePhotoClick = { photo ->
-                        photoToRetake = photo
-                        showAddSessionPhotoDialog = true
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                        contentDescription = null,
+                        tint = SageGreenPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = "Dịch Vụ Đã Làm",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = CharcoalTextPrimary
+                    )
+                }
+            }
+
+            if (client.serviceHistory.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = CardDefaults.cardColors(containerColor = WarmBeigeSurfaceVariant)
+                    ) {
+                        Text(
+                            text = "Chưa có lịch sử dịch vụ nào.",
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = CharcoalTextMuted
+                        )
                     }
-                )
-            }
-
-            if (client.beforeAfterComparisons.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "So Sánh Side-by-Side (Trước & Sau)",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = CharcoalTextPrimary
-                    )
                 }
-
-                items(client.beforeAfterComparisons.size) { index ->
-                    BeforeAfterGalleryCard(comparison = client.beforeAfterComparisons[index])
-                }
-            }
-
-            // 6. Lịch sử sử dụng dịch vụ
-            if (client.serviceHistory.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Lịch Sử Sử Dụng Dịch Vụ",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = CharcoalTextPrimary
-                    )
-                }
-
+            } else {
                 items(client.serviceHistory.size) { index ->
                     val record = client.serviceHistory[index]
                     Card(
@@ -427,6 +368,21 @@ fun ClientProfileScreen(
                         }
                     }
                 }
+            }
+
+            // 4. Ảnh Tình Trạng Khách Qua Các Buổi
+            item {
+                SessionPhotoProgressionCard(
+                    photos = client.sessionPhotos,
+                    onAddPhotoClick = {
+                        photoToRetake = null
+                        showAddSessionPhotoDialog = true
+                    },
+                    onRetakePhotoClick = { photo ->
+                        photoToRetake = photo
+                        showAddSessionPhotoDialog = true
+                    }
+                )
             }
         }
     }
@@ -528,64 +484,6 @@ fun ClientProfileScreen(
             },
             dismissButton = {
                 OutlinedButton(onClick = { showAddPackageDialog = false }) {
-                    Text("Hủy")
-                }
-            }
-        )
-    }
-
-    // Dialog Thêm ảnh Before & After mới
-    if (showAddBeforeAfterDialog) {
-        var treatmentTitle by remember { mutableStateOf("Liệu Trình Chăm Sóc Da") }
-        var notes by remember { mutableStateOf("Cải thiện sắc tố da, giảm viêm đỏ rõ rệt.") }
-
-        AlertDialog(
-            onDismissRequest = { showAddBeforeAfterDialog = false },
-            title = { Text("Thêm Ảnh So Sánh Trước & Sau") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = treatmentTitle,
-                        onValueChange = { treatmentTitle = it },
-                        label = { Text("Tên liệu trình") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = notes,
-                        onValueChange = { notes = it },
-                        label = { Text("Đánh giá lâm sàng") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val record = BeforeAfterComparison(
-                            id = "BA-" + (1000..9999).random(),
-                            treatmentName = treatmentTitle,
-                            beforeDate = "16/10/2026 (Buổi 1)",
-                            afterDate = "16/11/2026 (Buổi 5)",
-                            beforeImageUrl = "https://images.unsplash.com/photo-1512290900672-1f55b9e59d4c?auto=format&fit=crop&w=600&q=80",
-                            afterImageUrl = "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=600&q=80",
-                            sessionMilestone = "Tiến độ: Buổi 1 ➔ Buổi 5",
-                            technicianName = "Chuyên viên Thảo My",
-                            clinicalNotes = notes
-                        )
-                        onAddBeforeAfter(record)
-                        showAddBeforeAfterDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = SageGreenPrimary,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text("Thêm so sánh", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showAddBeforeAfterDialog = false }) {
                     Text("Hủy")
                 }
             }

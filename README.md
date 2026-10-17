@@ -24,12 +24,14 @@
 
 ## 🌟 Tính Năng Nổi Bật
 
-### 1. 📇 Spa CRM & Quản Lý Liệu Trình Chuyên Sâu
-- **Đầy đủ tính năng Thêm / Sửa / Xóa:** Hỗ trợ tạo hồ sơ khách hàng mới, cập nhật thông tin da liễu/dị ứng, và xóa hồ sơ với hộp thoại xác thực an toàn.
+### 1. 📇 Spa CRM & Hồ Sơ Khách Hàng Tinh Gọn 4 Phần
+- **Giao diện hồ sơ tinh gọn & trực quan:** Tập trung đúng 4 phần thiết yếu gồm:
+  1. **Thông tin khách:** Tên, SĐT, Email, Hạng thành viên VIP, cùng nút thao tác nhanh "Đặt lịch mới" và "Thanh toán".
+  2. **Gói liệu trình:** Danh sách gói đang sử dụng, theo dõi tiến độ số buổi còn lại và điểm danh trừ buổi 1 chạm.
+  3. **Dịch vụ đã làm:** Lịch sử chi tiết các buổi trị liệu đã thực hiện, ngày giờ, phòng chăm sóc, KTV phụ trách và phản hồi của khách.
+  4. **Ảnh tình trạng qua các buổi:** Thư viện lướt ngang theo dõi tiến trình hồi phục và chuyển biến của da/vóc dáng theo từng buổi (khung ảnh chuẩn 3:4, hỗ trợ chụp mới/tải ảnh).
+- **Đầy đủ thao tác Thêm / Sửa / Xóa:** Hỗ trợ tạo hồ sơ khách hàng mới, cập nhật thông tin và xóa an toàn.
 - **Tìm kiếm & Bộ lọc thông minh:** Tìm nhanh theo tên, số điện thoại và lọc theo từng phân hạng (VIP Gold, Diamond, Silver, Thân thiết).
-- **Cảnh báo Dị ứng & Chống chỉ định:** Hiển thị trực quan cảnh báo đỏ (*Allergy Alert Card*) ngăn ngừa việc dùng nhầm hoạt chất hoặc công nghệ máy gây kích ứng.
-- **Bộ đếm buổi liệu trình (Session Counter):** Theo dõi tiến độ các gói dịch vụ (ví dụ: *Gói 10 buổi Whitening Facial - Còn 3 buổi*), hỗ trợ điểm danh một chạm trừ buổi tự động.
-- **Thư viện Before & After:** So sánh ảnh chụp trước và sau điều trị song song (*Side-by-Side*) theo mốc thời gian kèm nhận xét lâm sàng của chuyên viên.
 
 ### 2. 💳 Thu Ngân & Sinh Mã VietQR Nhanh Chóng
 - **Tự động sinh mã VietQR Napas 247:** Điền sẵn chính xác số tiền, số tài khoản và nội dung chuyển khoản tương thích hơn 40 app ngân hàng Việt Nam.
