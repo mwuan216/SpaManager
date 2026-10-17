@@ -63,7 +63,10 @@ fun SpaMainApp(
     val technicians by repository.technicians.collectAsState(initial = emptyList())
     val transactions by repository.transactions.collectAsState(initial = emptyList())
 
-    var selectedDashboardDate by remember { mutableStateOf("16/10/2026") }
+    val todayDateStr = remember {
+        java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+    }
+    var selectedDashboardDate by remember { mutableStateOf(todayDateStr) }
 
     val selectedClient = remember(clients, selectedClientId) {
         clients.find { it.id == selectedClientId }

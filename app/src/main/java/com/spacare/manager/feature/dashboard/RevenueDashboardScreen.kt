@@ -54,13 +54,33 @@ fun RevenueDashboardScreen(
     var showExportConfirmDialog by remember { mutableStateOf(false) }
     var exportedFileName by remember { mutableStateOf<String?>(null) }
 
-    val availableDates = listOf(
-        "16/10/2026" to "Hôm nay (16/10)",
-        "15/10/2026" to "Hôm qua (15/10)",
-        "14/10/2026" to "Thứ 4 (14/10)",
-        "13/10/2026" to "Thứ 3 (13/10)",
-        "12/10/2026" to "Thứ 2 (12/10)"
-    )
+    val availableDates = remember {
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val dmSdf = SimpleDateFormat("dd/MM", Locale.getDefault())
+        val c = java.util.Calendar.getInstance()
+        val list = mutableListOf<Pair<String, String>>()
+        list.add(sdf.format(c.time) to "Hôm nay (${dmSdf.format(c.time)})")
+        c.add(java.util.Calendar.DAY_OF_YEAR, -1)
+        list.add(sdf.format(c.time) to "Hôm qua (${dmSdf.format(c.time)})")
+        for (i in 2..4) {
+            c.add(java.util.Calendar.DAY_OF_YEAR, -1)
+            val dow = when (c.get(java.util.Calendar.DAY_OF_WEEK)) {
+                java.util.Calendar.MONDAY -> "Thứ 2"
+                java.util.Calendar.TUESDAY -> "Thứ 3"
+                java.util.Calendar.WEDNESDAY -> "Thứ 4"
+                java.util.Calendar.THURSDAY -> "Thứ 5"
+                java.util.Calendar.FRIDAY -> "Thứ 6"
+                java.util.Calendar.SATURDAY -> "Thứ 7"
+                java.util.Calendar.SUNDAY -> "Chủ nhật"
+                else -> "Ngày"
+            }
+            list.add(sdf.format(c.time) to "$dow (${dmSdf.format(c.time)})")
+        }
+        if (list.none { it.first == "16/10/2026" }) {
+            list.add("16/10/2026" to "16/10/2026")
+        }
+        list
+    }
 
     val dayTransactions = remember(transactions, selectedDate) {
         transactions.filter { it.date == selectedDate }

@@ -354,6 +354,95 @@ class SpaRepository(context: Context? = null) {
                 treatmentPackages = emptyList(),
                 serviceHistory = emptyList(),
                 beforeAfterComparisons = emptyList()
+            ),
+            Client(
+                id = "KH-8833",
+                fullName = "Phạm Mai Anh",
+                phone = "0933 456 789",
+                email = "maianh.pham@gmail.com",
+                vipTier = VipTier.STANDARD,
+                skinType = "Da nhạy cảm, nang lông dày sẫm màu",
+                skinConditionNotes = "Đang trong liệu trình triệt lông Diode Laser công nghệ cao, kết hợp trẻ hóa làm sáng vùng da dưới cánh tay.",
+                allergyAlerts = listOf("Dị ứng gel bôi trơn gốc sáp ong"),
+                contraindications = listOf("Không tắm nước quá nóng trong vòng 24h sau bắn laser"),
+                treatmentPackages = listOf(
+                    TreatmentPackage(
+                        id = "PKG-05",
+                        name = "Triệt Lông Diode Laser Trẻ Hóa",
+                        totalSessions = 10,
+                        usedSessions = 3,
+                        remainingSessions = 7,
+                        startDate = "10/08/2026",
+                        expiryDate = "10/08/2027",
+                        assignedTherapist = "KTV. Thảo My"
+                    )
+                ),
+                serviceHistory = emptyList(),
+                beforeAfterComparisons = emptyList()
+            ),
+            Client(
+                id = "KH-8834",
+                fullName = "Đặng Kim Ngân",
+                phone = "0938 222 333",
+                email = "kimngan.dang@outlook.com",
+                vipTier = VipTier.VIP,
+                skinType = "Da xỉn màu, thiếu sức sống do thức khuya",
+                skinConditionNotes = "Cần tăng cường cấy tinh chất Nano Collagen tươi phục hồi độ sáng và trẻ hóa tầng sâu biểu bì.",
+                allergyAlerts = emptyList(),
+                contraindications = emptyList(),
+                treatmentPackages = listOf(
+                    TreatmentPackage(
+                        id = "PKG-06",
+                        name = "Cấy Trắng Da Nano Collagen Tươi",
+                        totalSessions = 5,
+                        usedSessions = 1,
+                        remainingSessions = 4,
+                        startDate = "01/10/2026",
+                        expiryDate = "01/04/2027",
+                        assignedTherapist = "KTV. Lan Phương"
+                    )
+                ),
+                serviceHistory = emptyList(),
+                beforeAfterComparisons = emptyList()
+            ),
+            Client(
+                id = "KH-8835",
+                fullName = "Hoàng Yến Nhi",
+                phone = "0903 888 999",
+                email = "yennhi.hoang@gmail.com",
+                vipTier = VipTier.STANDARD,
+                skinType = "Da dầu mụn ẩn vùng trán và cằm",
+                skinConditionNotes = "Da nhiễm bụi mịn đô thị, độc tố chì từ mỹ phẩm trang điểm. Cần thải độc chì định kỳ 2 tuần/lần.",
+                allergyAlerts = listOf("Kích ứng với cồn mỹ phẩm nồng độ cao"),
+                contraindications = emptyList(),
+                treatmentPackages = emptyList(),
+                serviceHistory = emptyList(),
+                beforeAfterComparisons = emptyList()
+            ),
+            Client(
+                id = "KH-8836",
+                fullName = "Ngô Bảo Châu",
+                phone = "0918 666 777",
+                email = "baochau.ngo@gmail.com",
+                vipTier = VipTier.VIP,
+                skinType = "Da khô toàn thân, cháy nắng nhẹ sau du lịch biển",
+                skinConditionNotes = "Liệu trình tắm trắng phi thuyền collagen kết hợp ủ bùn khoáng thiên nhiên.",
+                allergyAlerts = emptyList(),
+                contraindications = emptyList(),
+                treatmentPackages = listOf(
+                    TreatmentPackage(
+                        id = "PKG-07",
+                        name = "Tắm Trắng Phi Thuyền Hoàng Gia",
+                        totalSessions = 4,
+                        usedSessions = 2,
+                        remainingSessions = 2,
+                        startDate = "15/09/2026",
+                        expiryDate = "15/12/2026",
+                        assignedTherapist = "KTV. Lan Phương"
+                    )
+                ),
+                serviceHistory = emptyList(),
+                beforeAfterComparisons = emptyList()
             )
         )
 
@@ -478,9 +567,43 @@ class SpaRepository(context: Context? = null) {
 
 
     // --- QUẢN LÝ LỊCH HẸN (CALENDAR) ---
-    private val demoAppointments = listOf(
+    private fun buildDemoAppointments(): List<Appointment> {
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val cal = Calendar.getInstance()
+        val todayStr = sdf.format(cal.time)
+
+        cal.add(Calendar.DAY_OF_YEAR, -1)
+        val yesterdayStr = sdf.format(cal.time)
+
+        cal.add(Calendar.DAY_OF_YEAR, 2) // +1 from today
+        val tomorrowStr = sdf.format(cal.time)
+
+        cal.add(Calendar.DAY_OF_YEAR, 1) // +2 from today
+        val dayAfterTomorrowStr = sdf.format(cal.time)
+
+        val list = mutableListOf<Appointment>()
+
+        // 1. LỊCH HẸN HÔM NAY (TODAY) - Đa dạng trạng thái để test tất cả các luồng xử lý
+        list.add(
             Appointment(
-                id = "APT-101",
+                id = "APT-TODAY-01",
+                clientName = "Vũ Thu Trang",
+                clientPhone = "0977 123 456",
+                serviceName = "Gội Đầu Dưỡng Sinh Thảo Dược 60p",
+                durationMinutes = 60,
+                staffName = "Hương Giang",
+                roomName = "Phòng Dưỡng Sinh Sen",
+                startTime = "08:30",
+                endTime = "09:30",
+                date = todayStr,
+                status = AppointmentStatus.COMPLETED,
+                price = 350000L,
+                reminderSent = true
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-TODAY-02",
                 clientName = "Nguyễn Thu Hà",
                 clientPhone = "0912 345 678",
                 serviceName = "Whitening Facial (Buổi 8/10)",
@@ -489,13 +612,15 @@ class SpaRepository(context: Context? = null) {
                 roomName = "Phòng VIP 02",
                 startTime = "09:30",
                 endTime = "11:00",
-                date = "16/10/2026",
-                status = AppointmentStatus.CONFIRMED,
+                date = todayStr,
+                status = AppointmentStatus.IN_SERVICE,
                 price = 0L,
                 reminderSent = true
-            ),
+            )
+        )
+        list.add(
             Appointment(
-                id = "APT-102",
+                id = "APT-TODAY-03",
                 clientName = "Trần Bích Ngọc",
                 clientPhone = "0988 776 655",
                 serviceName = "Massage Body Đá Nóng Himalaya 90p",
@@ -504,13 +629,32 @@ class SpaRepository(context: Context? = null) {
                 roomName = "Phòng Trị Liệu Sen",
                 startTime = "10:00",
                 endTime = "11:30",
-                date = "16/10/2026",
+                date = todayStr,
                 status = AppointmentStatus.IN_SERVICE,
                 price = 850000L,
                 reminderSent = true
-            ),
+            )
+        )
+        list.add(
             Appointment(
-                id = "APT-103",
+                id = "APT-TODAY-04",
+                clientName = "Đặng Kim Ngân",
+                clientPhone = "0938 222 333",
+                serviceName = "Cấy Trắng Da Nano Collagen Tươi",
+                durationMinutes = 60,
+                staffName = "Lan Phương",
+                roomName = "Phòng VIP 01",
+                startTime = "11:30",
+                endTime = "12:30",
+                date = todayStr,
+                status = AppointmentStatus.CONFIRMED,
+                price = 1200000L,
+                reminderSent = true
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-TODAY-05",
                 clientName = "Lê Hoàng Yến",
                 clientPhone = "0909 112 233",
                 serviceName = "Chăm Sóc Da Chuyên Sâu Detox O2",
@@ -519,13 +663,15 @@ class SpaRepository(context: Context? = null) {
                 roomName = "Phòng Chăm Sóc 03",
                 startTime = "13:30",
                 endTime = "14:45",
-                date = "16/10/2026",
+                date = todayStr,
                 status = AppointmentStatus.CONFIRMED,
                 price = 650000L,
                 reminderSent = true
-            ),
+            )
+        )
+        list.add(
             Appointment(
-                id = "APT-104",
+                id = "APT-TODAY-06",
                 clientName = "Phạm Mai Anh",
                 clientPhone = "0933 456 789",
                 serviceName = "Triệt Lông Diode Laser Trẻ Hóa",
@@ -534,27 +680,401 @@ class SpaRepository(context: Context? = null) {
                 roomName = "Phòng Laser 01",
                 startTime = "14:00",
                 endTime = "14:45",
-                date = "16/10/2026",
+                date = todayStr,
                 status = AppointmentStatus.PENDING,
                 price = 500000L,
                 reminderSent = false
-            ),
+            )
+        )
+        list.add(
             Appointment(
-                id = "APT-105",
+                id = "APT-TODAY-07",
+                clientName = "Trần Bích Ngọc",
+                clientPhone = "0988 776 655",
+                serviceName = "Trẻ Hóa Nâng Cơ RF Hifu Collagen 360 (Buổi 3/5)",
+                durationMinutes = 60,
+                staffName = "Hương Giang",
+                roomName = "Phòng Trị Liệu Sen",
+                startTime = "15:30",
+                endTime = "16:30",
+                date = todayStr,
+                status = AppointmentStatus.CONFIRMED,
+                price = 0L,
+                reminderSent = true
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-TODAY-08",
+                clientName = "Vũ Thu Trang",
+                clientPhone = "0977 123 456",
+                serviceName = "Massage Cổ Vai Gáy Dược Liệu",
+                durationMinutes = 60,
+                staffName = "Hương Giang",
+                roomName = "Phòng Dưỡng Sinh Sen",
+                startTime = "16:30",
+                endTime = "17:30",
+                date = todayStr,
+                status = AppointmentStatus.PENDING,
+                price = 300000L,
+                reminderSent = false
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-TODAY-09",
+                clientName = "Hoàng Yến Nhi",
+                clientPhone = "0903 888 999",
+                serviceName = "Thải Độc Chì Chăm Sóc Da Căng Bóng",
+                durationMinutes = 75,
+                staffName = "Thảo My",
+                roomName = "Phòng Chăm Sóc 03",
+                startTime = "18:00",
+                endTime = "19:15",
+                date = todayStr,
+                status = AppointmentStatus.CANCELLED,
+                price = 450000L,
+                reminderSent = false
+            )
+        )
+
+        // 2. LỊCH HẸN NGÀY MAI (TOMORROW)
+        list.add(
+            Appointment(
+                id = "APT-TOM-01",
+                clientName = "Nguyễn Thu Hà",
+                clientPhone = "0912 345 678",
+                serviceName = "Liệu Trình Phục Hồi Hàng Rào Bảo Vệ Da",
+                durationMinutes = 90,
+                staffName = "Thảo My",
+                roomName = "Phòng VIP 02",
+                startTime = "09:00",
+                endTime = "10:30",
+                date = tomorrowStr,
+                status = AppointmentStatus.CONFIRMED,
+                price = 750000L,
+                reminderSent = true
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-TOM-02",
                 clientName = "Vũ Thu Trang",
                 clientPhone = "0977 123 456",
                 serviceName = "Gội Đầu Dưỡng Sinh Thảo Dược 60p",
                 durationMinutes = 60,
                 staffName = "Hương Giang",
                 roomName = "Phòng Dưỡng Sinh Sen",
-                startTime = "15:30",
-                endTime = "16:30",
-                date = "16/10/2026",
+                startTime = "10:30",
+                endTime = "11:30",
+                date = tomorrowStr,
+                status = AppointmentStatus.PENDING,
+                price = 350000L,
+                reminderSent = false
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-TOM-03",
+                clientName = "Lê Hoàng Yến",
+                clientPhone = "0909 112 233",
+                serviceName = "Trị Mụn Chuyên Sâu Detox O2 & Biolight (Buổi 6/6)",
+                durationMinutes = 75,
+                staffName = "Lan Phương",
+                roomName = "Phòng Chăm Sóc 03",
+                startTime = "13:30",
+                endTime = "14:45",
+                date = tomorrowStr,
                 status = AppointmentStatus.CONFIRMED,
+                price = 0L,
+                reminderSent = true
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-TOM-04",
+                clientName = "Phạm Mai Anh",
+                clientPhone = "0933 456 789",
+                serviceName = "Triệt Lông Toàn Thân Diode Laser",
+                durationMinutes = 60,
+                staffName = "Thảo My",
+                roomName = "Phòng Laser 01",
+                startTime = "15:00",
+                endTime = "16:00",
+                date = tomorrowStr,
+                status = AppointmentStatus.CONFIRMED,
+                price = 1800000L,
+                reminderSent = true
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-TOM-05",
+                clientName = "Trần Bích Ngọc",
+                clientPhone = "0988 776 655",
+                serviceName = "Massage Body Đá Nóng Himalaya 90p",
+                durationMinutes = 90,
+                staffName = "Hương Giang",
+                roomName = "Phòng Trị Liệu Sen",
+                startTime = "16:30",
+                endTime = "18:00",
+                date = tomorrowStr,
+                status = AppointmentStatus.CONFIRMED,
+                price = 850000L,
+                reminderSent = true
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-TOM-06",
+                clientName = "Đặng Kim Ngân",
+                clientPhone = "0938 222 333",
+                serviceName = "Chăm Sóc Da Căng Bóng Thủy Điểm",
+                durationMinutes = 60,
+                staffName = "Lan Phương",
+                roomName = "Phòng VIP 01",
+                startTime = "18:30",
+                endTime = "19:30",
+                date = tomorrowStr,
+                status = AppointmentStatus.PENDING,
+                price = 950000L,
+                reminderSent = false
+            )
+        )
+
+        // 3. LỊCH HẸN HÔM QUA (YESTERDAY)
+        list.add(
+            Appointment(
+                id = "APT-YES-01",
+                clientName = "Nguyễn Thu Hà",
+                clientPhone = "0912 345 678",
+                serviceName = "Whitening Facial (Buổi 7/10)",
+                durationMinutes = 90,
+                staffName = "Thảo My",
+                roomName = "Phòng VIP 02",
+                startTime = "09:00",
+                endTime = "10:30",
+                date = yesterdayStr,
+                status = AppointmentStatus.COMPLETED,
+                price = 0L,
+                reminderSent = true
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-YES-02",
+                clientName = "Trần Bích Ngọc",
+                clientPhone = "0988 776 655",
+                serviceName = "Massage Body Thư Giãn Tinh Dầu",
+                durationMinutes = 90,
+                staffName = "Hương Giang",
+                roomName = "Phòng Trị Liệu Sen",
+                startTime = "10:30",
+                endTime = "12:00",
+                date = yesterdayStr,
+                status = AppointmentStatus.COMPLETED,
+                price = 650000L,
+                reminderSent = true
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-YES-03",
+                clientName = "Lê Hoàng Yến",
+                clientPhone = "0909 112 233",
+                serviceName = "Trị Mụn Chuyên Sâu Detox O2",
+                durationMinutes = 75,
+                staffName = "Lan Phương",
+                roomName = "Phòng Chăm Sóc 03",
+                startTime = "14:00",
+                endTime = "15:15",
+                date = yesterdayStr,
+                status = AppointmentStatus.COMPLETED,
+                price = 550000L,
+                reminderSent = true
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-YES-04",
+                clientName = "Vũ Thu Trang",
+                clientPhone = "0977 123 456",
+                serviceName = "Gội Đầu Dưỡng Sinh Thảo Dược 60p",
+                durationMinutes = 60,
+                staffName = "Hương Giang",
+                roomName = "Phòng Dưỡng Sinh Sen",
+                startTime = "16:00",
+                endTime = "17:00",
+                date = yesterdayStr,
+                status = AppointmentStatus.COMPLETED,
                 price = 350000L,
                 reminderSent = true
             )
         )
+        list.add(
+            Appointment(
+                id = "APT-YES-05",
+                clientName = "Ngô Bảo Châu",
+                clientPhone = "0918 666 777",
+                serviceName = "Tắm Trắng Phi Thuyền Hoàng Gia",
+                durationMinutes = 60,
+                staffName = "Lan Phương",
+                roomName = "Phòng VIP 01",
+                startTime = "17:30",
+                endTime = "18:30",
+                date = yesterdayStr,
+                status = AppointmentStatus.CANCELLED,
+                price = 1500000L,
+                reminderSent = false
+            )
+        )
+
+        // 4. LỊCH HẸN NGÀY KIA / NGÀY MỐT (DAY AFTER TOMORROW)
+        list.add(
+            Appointment(
+                id = "APT-DAT-01",
+                clientName = "Vũ Thu Trang",
+                clientPhone = "0977 123 456",
+                serviceName = "Chăm Sóc Da Căng Bóng Thủy Điểm",
+                durationMinutes = 90,
+                staffName = "Thảo My",
+                roomName = "Phòng VIP 02",
+                startTime = "09:30",
+                endTime = "11:00",
+                date = dayAfterTomorrowStr,
+                status = AppointmentStatus.CONFIRMED,
+                price = 950000L,
+                reminderSent = true
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-DAT-02",
+                clientName = "Trần Bích Ngọc",
+                clientPhone = "0988 776 655",
+                serviceName = "Massage Body Đá Nóng Himalaya 90p",
+                durationMinutes = 90,
+                staffName = "Hương Giang",
+                roomName = "Phòng Trị Liệu Sen",
+                startTime = "14:00",
+                endTime = "15:30",
+                date = dayAfterTomorrowStr,
+                status = AppointmentStatus.CONFIRMED,
+                price = 850000L,
+                reminderSent = true
+            )
+        )
+        list.add(
+            Appointment(
+                id = "APT-DAT-03",
+                clientName = "Đặng Kim Ngân",
+                clientPhone = "0938 222 333",
+                serviceName = "Cấy Trắng Da Nano Collagen Tươi",
+                durationMinutes = 60,
+                staffName = "Lan Phương",
+                roomName = "Phòng VIP 01",
+                startTime = "16:00",
+                endTime = "17:00",
+                date = dayAfterTomorrowStr,
+                status = AppointmentStatus.PENDING,
+                price = 1200000L,
+                reminderSent = false
+            )
+        )
+
+        // 5. NGÀY CỐ ĐỊNH "16/10/2026" (Nếu hôm nay không trùng với 16/10/2026)
+        if (todayStr != "16/10/2026") {
+            list.add(
+                Appointment(
+                    id = "APT-101",
+                    clientName = "Nguyễn Thu Hà",
+                    clientPhone = "0912 345 678",
+                    serviceName = "Whitening Facial (Buổi 8/10)",
+                    durationMinutes = 90,
+                    staffName = "Thảo My",
+                    roomName = "Phòng VIP 02",
+                    startTime = "09:30",
+                    endTime = "11:00",
+                    date = "16/10/2026",
+                    status = AppointmentStatus.CONFIRMED,
+                    price = 0L,
+                    reminderSent = true
+                )
+            )
+            list.add(
+                Appointment(
+                    id = "APT-102",
+                    clientName = "Trần Bích Ngọc",
+                    clientPhone = "0988 776 655",
+                    serviceName = "Massage Body Đá Nóng Himalaya 90p",
+                    durationMinutes = 90,
+                    staffName = "Hương Giang",
+                    roomName = "Phòng Trị Liệu Sen",
+                    startTime = "10:00",
+                    endTime = "11:30",
+                    date = "16/10/2026",
+                    status = AppointmentStatus.IN_SERVICE,
+                    price = 850000L,
+                    reminderSent = true
+                )
+            )
+            list.add(
+                Appointment(
+                    id = "APT-103",
+                    clientName = "Lê Hoàng Yến",
+                    clientPhone = "0909 112 233",
+                    serviceName = "Chăm Sóc Da Chuyên Sâu Detox O2",
+                    durationMinutes = 75,
+                    staffName = "Lan Phương",
+                    roomName = "Phòng Chăm Sóc 03",
+                    startTime = "13:30",
+                    endTime = "14:45",
+                    date = "16/10/2026",
+                    status = AppointmentStatus.CONFIRMED,
+                    price = 650000L,
+                    reminderSent = true
+                )
+            )
+            list.add(
+                Appointment(
+                    id = "APT-104",
+                    clientName = "Phạm Mai Anh",
+                    clientPhone = "0933 456 789",
+                    serviceName = "Triệt Lông Diode Laser Trẻ Hóa",
+                    durationMinutes = 45,
+                    staffName = "Thảo My",
+                    roomName = "Phòng Laser 01",
+                    startTime = "14:00",
+                    endTime = "14:45",
+                    date = "16/10/2026",
+                    status = AppointmentStatus.PENDING,
+                    price = 500000L,
+                    reminderSent = false
+                )
+            )
+            list.add(
+                Appointment(
+                    id = "APT-105",
+                    clientName = "Vũ Thu Trang",
+                    clientPhone = "0977 123 456",
+                    serviceName = "Gội Đầu Dưỡng Sinh Thảo Dược 60p",
+                    durationMinutes = 60,
+                    staffName = "Hương Giang",
+                    roomName = "Phòng Dưỡng Sinh Sen",
+                    startTime = "15:30",
+                    endTime = "16:30",
+                    date = "16/10/2026",
+                    status = AppointmentStatus.CONFIRMED,
+                    price = 350000L,
+                    reminderSent = true
+                )
+            )
+        }
+
+        return list
+    }
+
+    private val demoAppointments = buildDemoAppointments()
 
     private val _appointments = MutableStateFlow(
         if (_isRealUsageMode.value) emptyList() else demoAppointments
@@ -590,73 +1110,208 @@ class SpaRepository(context: Context? = null) {
     }
 
     // --- LỊCH SỬ GIAO DỊCH & HÓA ĐƠN ---
-    private val demoTransactions = listOf(
-        InvoiceTransactionRecord(
-                id = "TX-01",
-                invoiceCode = "SPA8829",
-                clientName = "Nguyễn Thu Hà",
-                clientPhone = "0912 345 678",
-                serviceName = "Whitening Facial Cao Cấp (Buổi 8/10)",
-                technicianName = "Thảo My",
-                time = "09:30",
-                date = "16/10/2026",
-                amount = 2025000L,
+    private fun buildDemoTransactions(): List<InvoiceTransactionRecord> {
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val cal = Calendar.getInstance()
+        val todayStr = sdf.format(cal.time)
+
+        cal.add(Calendar.DAY_OF_YEAR, -1)
+        val yesterdayStr = sdf.format(cal.time)
+
+        val list = mutableListOf<InvoiceTransactionRecord>()
+
+        // 1. Giao dịch Hôm nay (TODAY)
+        list.add(
+            InvoiceTransactionRecord(
+                id = "TX-TODAY-01",
+                invoiceCode = "SPA-8832",
+                clientName = "Vũ Thu Trang",
+                clientPhone = "0977 123 456",
+                serviceName = "Gội Đầu Dưỡng Sinh Thảo Dược 60p",
+                technicianName = "Hương Giang",
+                time = "08:30",
+                date = todayStr,
+                amount = 350000L,
                 paymentMethod = "VietQR Chuyển Khoản",
                 isPaid = true
-            ),
+            )
+        )
+        list.add(
             InvoiceTransactionRecord(
-                id = "TX-02",
-                invoiceCode = "SPA102",
+                id = "TX-TODAY-02",
+                invoiceCode = "SPA-8829",
+                clientName = "Nguyễn Thu Hà",
+                clientPhone = "0912 345 678",
+                serviceName = "Serum EGF Repair 30ml + Combo Dưỡng Ẩm",
+                technicianName = "Thảo My",
+                time = "09:30",
+                date = todayStr,
+                amount = 1600000L,
+                paymentMethod = "VietQR Chuyển Khoản",
+                isPaid = true
+            )
+        )
+        list.add(
+            InvoiceTransactionRecord(
+                id = "TX-TODAY-03",
+                invoiceCode = "SPA-8830",
                 clientName = "Trần Bích Ngọc",
                 clientPhone = "0988 776 655",
                 serviceName = "Massage Body Đá Nóng Himalaya 90p",
                 technicianName = "Hương Giang",
                 time = "10:00",
-                date = "16/10/2026",
+                date = todayStr,
                 amount = 850000L,
                 paymentMethod = "VietQR Chuyển Khoản",
-                isPaid = true
-            ),
+                isPaid = false
+            )
+        )
+        list.add(
             InvoiceTransactionRecord(
-                id = "TX-03",
-                invoiceCode = "SPA103",
+                id = "TX-TODAY-04",
+                invoiceCode = "SPA-8831",
                 clientName = "Lê Hoàng Yến",
                 clientPhone = "0909 112 233",
                 serviceName = "Chăm Sóc Da Chuyên Sâu Detox O2",
                 technicianName = "Lan Phương",
                 time = "13:30",
-                date = "16/10/2026",
+                date = todayStr,
                 amount = 650000L,
-                paymentMethod = "VietQR Chuyển Khoản",
-                isPaid = false
-            ),
-            InvoiceTransactionRecord(
-                id = "TX-04",
-                invoiceCode = "SPA104",
-                clientName = "Phạm Mai Anh",
-                clientPhone = "0933 456 789",
-                serviceName = "Triệt Lông Diode Laser Trẻ Hóa",
-                technicianName = "Thảo My",
-                time = "14:00",
-                date = "16/10/2026",
-                amount = 500000L,
-                paymentMethod = "Tiền mặt",
-                isPaid = false
-            ),
-            InvoiceTransactionRecord(
-                id = "TX-05",
-                invoiceCode = "SPA105",
-                clientName = "Vũ Thu Trang",
-                clientPhone = "0977 123 456",
-                serviceName = "Gội Đầu Dưỡng Sinh Thảo Dược 60p",
-                technicianName = "Hương Giang",
-                time = "15:30",
-                date = "16/10/2026",
-                amount = 350000L,
                 paymentMethod = "VietQR Chuyển Khoản",
                 isPaid = false
             )
         )
+
+        // 2. Giao dịch Hôm qua (YESTERDAY)
+        list.add(
+            InvoiceTransactionRecord(
+                id = "TX-YES-01",
+                invoiceCode = "SPA-8820",
+                clientName = "Trần Bích Ngọc",
+                clientPhone = "0988 776 655",
+                serviceName = "Massage Body Thư Giãn Tinh Dầu",
+                technicianName = "Hương Giang",
+                time = "10:30",
+                date = yesterdayStr,
+                amount = 650000L,
+                paymentMethod = "VietQR Chuyển Khoản",
+                isPaid = true
+            )
+        )
+        list.add(
+            InvoiceTransactionRecord(
+                id = "TX-YES-02",
+                invoiceCode = "SPA-8821",
+                clientName = "Lê Hoàng Yến",
+                clientPhone = "0909 112 233",
+                serviceName = "Trị Mụn Chuyên Sâu Detox O2",
+                technicianName = "Lan Phương",
+                time = "14:00",
+                date = yesterdayStr,
+                amount = 550000L,
+                paymentMethod = "VietQR Chuyển Khoản",
+                isPaid = true
+            )
+        )
+        list.add(
+            InvoiceTransactionRecord(
+                id = "TX-YES-03",
+                invoiceCode = "SPA-8822",
+                clientName = "Vũ Thu Trang",
+                clientPhone = "0977 123 456",
+                serviceName = "Gội Đầu Dưỡng Sinh Thảo Dược 60p",
+                technicianName = "Hương Giang",
+                time = "16:00",
+                date = yesterdayStr,
+                amount = 350000L,
+                paymentMethod = "Tiền mặt",
+                isPaid = true
+            )
+        )
+
+        // 3. Dữ liệu ngày cố định 16/10/2026 (Nếu hôm nay khác 16/10/2026)
+        if (todayStr != "16/10/2026") {
+            list.add(
+                InvoiceTransactionRecord(
+                    id = "TX-01",
+                    invoiceCode = "SPA8829",
+                    clientName = "Nguyễn Thu Hà",
+                    clientPhone = "0912 345 678",
+                    serviceName = "Combo Whitening Facial + Mỹ phẩm EGF",
+                    technicianName = "Thảo My",
+                    time = "11:00",
+                    date = "16/10/2026",
+                    amount = 2025000L,
+                    paymentMethod = "VietQR Chuyển Khoản",
+                    isPaid = true
+                )
+            )
+            list.add(
+                InvoiceTransactionRecord(
+                    id = "TX-02",
+                    invoiceCode = "SPA102",
+                    clientName = "Trần Bích Ngọc",
+                    clientPhone = "0988 776 655",
+                    serviceName = "Massage Body Đá Nóng Himalaya 90p",
+                    technicianName = "Hương Giang",
+                    time = "11:30",
+                    date = "16/10/2026",
+                    amount = 850000L,
+                    paymentMethod = "VietQR Chuyển Khoản",
+                    isPaid = true
+                )
+            )
+            list.add(
+                InvoiceTransactionRecord(
+                    id = "TX-03",
+                    invoiceCode = "SPA103",
+                    clientName = "Lê Hoàng Yến",
+                    clientPhone = "0909 112 233",
+                    serviceName = "Chăm Sóc Da Chuyên Sâu Detox O2",
+                    technicianName = "Lan Phương",
+                    time = "13:30",
+                    date = "16/10/2026",
+                    amount = 650000L,
+                    paymentMethod = "VietQR Chuyển Khoản",
+                    isPaid = false
+                )
+            )
+            list.add(
+                InvoiceTransactionRecord(
+                    id = "TX-04",
+                    invoiceCode = "SPA104",
+                    clientName = "Phạm Mai Anh",
+                    clientPhone = "0933 456 789",
+                    serviceName = "Triệt Lông Diode Laser Trẻ Hóa",
+                    technicianName = "Thảo My",
+                    time = "14:00",
+                    date = "16/10/2026",
+                    amount = 500000L,
+                    paymentMethod = "Tiền mặt",
+                    isPaid = false
+                )
+            )
+            list.add(
+                InvoiceTransactionRecord(
+                    id = "TX-05",
+                    invoiceCode = "SPA105",
+                    clientName = "Vũ Thu Trang",
+                    clientPhone = "0977 123 456",
+                    serviceName = "Gội Đầu Dưỡng Sinh Thảo Dược 60p",
+                    technicianName = "Hương Giang",
+                    time = "15:30",
+                    date = "16/10/2026",
+                    amount = 350000L,
+                    paymentMethod = "VietQR Chuyển Khoản",
+                    isPaid = false
+                )
+            )
+        }
+
+        return list
+    }
+
+    private val demoTransactions = buildDemoTransactions()
 
     private val _transactions = MutableStateFlow(
         if (_isRealUsageMode.value) emptyList() else demoTransactions
@@ -686,8 +1341,8 @@ class SpaRepository(context: Context? = null) {
         prefs?.edit()?.putBoolean("key_is_real_usage", false)?.apply()
         _isRealUsageMode.value = false
         _clients.value = demoClients
-        _appointments.value = demoAppointments
-        _transactions.value = demoTransactions
+        _appointments.value = buildDemoAppointments()
+        _transactions.value = buildDemoTransactions()
     }
 
     // --- THU NGÂN & TẠO MÃ VIETQR (LẤY TÀI KHOẢN TỪ STORE PROFILE) ---
