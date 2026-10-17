@@ -32,8 +32,6 @@ fun ClientFormDialog(
     var selectedVipTier by remember { mutableStateOf(initialClient?.vipTier ?: VipTier.STANDARD) }
     var skinType by remember { mutableStateOf(initialClient?.skinType ?: "Da hỗn hợp thiên dầu") }
     var skinNotes by remember { mutableStateOf(initialClient?.skinConditionNotes ?: "") }
-    var allergiesText by remember { mutableStateOf(initialClient?.allergyAlerts?.joinToString("\n") ?: "") }
-    var contraindicationsText by remember { mutableStateOf(initialClient?.contraindications?.joinToString("\n") ?: "") }
 
     var expandedVipDropdown by remember { mutableStateOf(false) }
 
@@ -156,33 +154,6 @@ fun ClientFormDialog(
                     minLines = 2
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Cảnh báo dị ứng
-                OutlinedTextField(
-                    value = allergiesText,
-                    onValueChange = { allergiesText = it },
-                    label = { Text("Lưu ý Dị ứng (mỗi dòng 1 loại)") },
-                    placeholder = { Text("Vd: Dị ứng Retinol\nDị ứng hương liệu") },
-                    leadingIcon = { Icon(Icons.Default.WarningAmber, contentDescription = null, tint = AllergyAlertRed) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.small,
-                    minLines = 2
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Chống chỉ định
-                OutlinedTextField(
-                    value = contraindicationsText,
-                    onValueChange = { contraindicationsText = it },
-                    label = { Text("Chống chỉ định y khoa (mỗi dòng 1 mục)") },
-                    placeholder = { Text("Vd: Đang mang thai\nKhông dùng máy RF") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.small,
-                    minLines = 2
-                )
-
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // Nút thao tác
@@ -201,13 +172,6 @@ fun ClientFormDialog(
                     Button(
                         onClick = {
                             if (fullName.isNotBlank() && phone.isNotBlank()) {
-                                val allergiesList = allergiesText.split("\n")
-                                    .map { it.trim() }
-                                    .filter { it.isNotEmpty() }
-                                val contraindicationsList = contraindicationsText.split("\n")
-                                    .map { it.trim() }
-                                    .filter { it.isNotEmpty() }
-
                                 val clientToSave = if (isEdit) {
                                     initialClient!!.copy(
                                         fullName = fullName.trim(),
@@ -215,9 +179,7 @@ fun ClientFormDialog(
                                         email = email.trim(),
                                         vipTier = selectedVipTier,
                                         skinType = skinType.trim(),
-                                        skinConditionNotes = skinNotes.trim(),
-                                        allergyAlerts = allergiesList,
-                                        contraindications = contraindicationsList
+                                        skinConditionNotes = skinNotes.trim()
                                     )
                                 } else {
                                     Client(
@@ -228,8 +190,8 @@ fun ClientFormDialog(
                                         vipTier = selectedVipTier,
                                         skinType = skinType.trim(),
                                         skinConditionNotes = skinNotes.trim(),
-                                        allergyAlerts = allergiesList,
-                                        contraindications = contraindicationsList,
+                                        allergyAlerts = emptyList(),
+                                        contraindications = emptyList(),
                                         treatmentPackages = emptyList(),
                                         serviceHistory = emptyList(),
                                         beforeAfterComparisons = emptyList()

@@ -14,7 +14,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SpaCareManager">
         <activity
-            android:name=".MainActivity"
+            android:name="com.spacare.manager.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.SpaCareManager"
             android:windowSoftInputMode="adjustResize">

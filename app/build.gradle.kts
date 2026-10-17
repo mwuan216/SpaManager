@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.mwapplication.spacare.manager"
+    namespace = "com.spacare.manager"
     compileSdk = 34
 
     defaultConfig {
