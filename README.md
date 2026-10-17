@@ -45,6 +45,12 @@
 - **Cơ cấu nguồn thu:** Biểu đồ phân bổ tỷ trọng giữa Gói liệu trình trả trước (57%), Dịch vụ lẻ (26%) và Mỹ phẩm bán lẻ mang về (17%).
 - **Bảng vinh danh KTV:** Đánh giá số lượt khách phục vụ, doanh thu mang về và xếp hạng sao trung bình.
 
+### 5. 🗄️ Lưu Trữ Cục Bộ (Room Database) & Sao Lưu Dữ Liệu (Backup & Restore)
+- **Cơ sở dữ liệu Room (SQLite):** Lưu trữ bền vững toàn bộ dữ liệu (Khách hàng, Lịch hẹn, Giao dịch, Cấu hình Spa, Gói liệu trình, KTV) trực tiếp trên máy, bảo toàn dữ liệu 100% khi tắt ứng dụng hoặc khởi động lại điện thoại.
+- **Hoạt động Offline hoàn toàn:** Không phụ thuộc Internet, bảo mật tuyệt đối thông tin khách hàng Spa.
+- **Xuất bản sao lưu (.json):** Xuất toàn bộ dữ liệu thành file JSON và chia sẻ 1-chạm qua Zalo, Google Drive, Gmail, v.v.
+- **Khôi phục dữ liệu (.json):** Chọn file JSON dự phòng để phục hồi đầy đủ dữ liệu khi đổi thiết bị mới.
+
 ---
 
 ## 🎨 Hệ Thống Thiết Kế (Design System)

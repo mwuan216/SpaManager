@@ -1,14 +1,26 @@
 package com.spacare.manager.data.repository
 
 import android.content.Context
+import com.spacare.manager.data.backup.BackupManager
+import com.spacare.manager.data.backup.BackupStats
+import com.spacare.manager.data.local.db.SpaDatabase
+import com.spacare.manager.data.local.db.entity.*
 import com.spacare.manager.domain.model.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
 class SpaRepository(context: Context? = null) {
+
+    private val database: SpaDatabase? = context?.let { SpaDatabase.getInstance(it) }
+    private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val prefs = context?.applicationContext?.getSharedPreferences(
         "spacare_usage_mode_prefs",
@@ -21,17 +33,17 @@ class SpaRepository(context: Context? = null) {
     val isRealUsageMode: Flow<Boolean> = _isRealUsageMode.asStateFlow()
 
     // --- CẤU HÌNH CỬA HÀNG & TÀI KHOẢN NGÂN HÀNG SPA ---
-    private val _storeProfile = MutableStateFlow(
-        StoreProfile(
-            name = "SpaCare Wellness Center",
-            hotline = "1900 6868",
-            address = "128 Phan Xích Long, P. 2, Q. Phú Nhuận, TP.HCM",
-            selectedBank = SupportedBanks[0], // Vietcombank làm gợi ý ban đầu
-            accountNumber = "1023456789",
-            accountHolder = "SPA CARE WELLNESS CENTER",
-            defaultMemo = "SPACARE"
-        )
+    private val defaultStoreProfile = StoreProfile(
+        name = "SpaCare Wellness Center",
+        hotline = "1900 6868",
+        address = "128 Phan Xích Long, P. 2, Q. Phú Nhuận, TP.HCM",
+        selectedBank = SupportedBanks[0], // Vietcombank làm gợi ý ban đầu
+        accountNumber = "1023456789",
+        accountHolder = "SPA CARE WELLNESS CENTER",
+        defaultMemo = "SPACARE"
     )
+
+    private val _storeProfile = MutableStateFlow(defaultStoreProfile)
     val storeProfile: Flow<StoreProfile> = _storeProfile.asStateFlow()
 
     fun updateStoreProfile(profile: StoreProfile) {
@@ -43,100 +55,121 @@ class SpaRepository(context: Context? = null) {
             accountHolder = profile.accountHolder,
             defaultMemo = profile.defaultMemo
         )
+        repositoryScope.launch {
+            database?.storeProfileDao()?.insertOrUpdate(StoreProfileEntity.fromDomain(profile))
+        }
     }
 
     // --- QUẢN LÝ MENU GÓI LIỆU TRÌNH ---
-    private val _catalogPackages = MutableStateFlow(
-        listOf(
-            SpaServicePackage(
-                id = "PKG-CAT-01",
-                name = "Liệu Trình Căng Bóng Whitening Facial",
-                totalSessions = 10,
-                price = 6500000L,
-                durationMinutes = 75,
-                description = "Điện di tinh chất tế bào gốc, cấy collagen tươi và khóa ẩm O2 Jet."
-            ),
-            SpaServicePackage(
-                id = "PKG-CAT-02",
-                name = "Triệt Lông Diode Laser Trẻ Hóa Master",
-                totalSessions = 8,
-                price = 4200000L,
-                durationMinutes = 45,
-                description = "Công nghệ Diode Laser bước sóng 808nm triệt sạch lông và se khít lỗ chân lông."
-            ),
-            SpaServicePackage(
-                id = "PKG-CAT-03",
-                name = "Gội Đầu Dưỡng Sinh Thảo Dược Chuông Xoay",
-                totalSessions = 5,
-                price = 1800000L,
-                durationMinutes = 60,
-                description = "Gội nước thảo mộc nấu tươi, massage ấn huyệt cổ vai gáy và chuông xoay Tây Tạng."
-            ),
-            SpaServicePackage(
-                id = "PKG-CAT-04",
-                name = "Nâng Cơ Trẻ Hóa Hifu 360 Siêu Âm Hội Tụ",
-                totalSessions = 3,
-                price = 8900000L,
-                durationMinutes = 90,
-                description = "Sóng siêu âm hội tụ vi điểm kích thích tăng sinh collagen tầng sâu, thon gọn viền hàm."
-            )
+    private val defaultCatalogPackages = listOf(
+        SpaServicePackage(
+            id = "PKG-CAT-01",
+            name = "Liệu Trình Căng Bóng Whitening Facial",
+            totalSessions = 10,
+            price = 6500000L,
+            durationMinutes = 75,
+            description = "Điện di tinh chất tế bào gốc, cấy collagen tươi và khóa ẩm O2 Jet."
+        ),
+        SpaServicePackage(
+            id = "PKG-CAT-02",
+            name = "Triệt Lông Diode Laser Trẻ Hóa Master",
+            totalSessions = 8,
+            price = 4200000L,
+            durationMinutes = 45,
+            description = "Công nghệ Diode Laser bước sóng 808nm triệt sạch lông và se khít lỗ chân lông."
+        ),
+        SpaServicePackage(
+            id = "PKG-CAT-03",
+            name = "Gội Đầu Dưỡng Sinh Thảo Dược Chuông Xoay",
+            totalSessions = 5,
+            price = 1800000L,
+            durationMinutes = 60,
+            description = "Gội nước thảo mộc nấu tươi, massage ấn huyệt cổ vai gáy và chuông xoay Tây Tạng."
+        ),
+        SpaServicePackage(
+            id = "PKG-CAT-04",
+            name = "Nâng Cơ Trẻ Hóa Hifu 360 Siêu Âm Hội Tụ",
+            totalSessions = 3,
+            price = 8900000L,
+            durationMinutes = 90,
+            description = "Sóng siêu âm hội tụ vi điểm kích thích tăng sinh collagen tầng sâu, thon gọn viền hàm."
         )
     )
+
+    private val _catalogPackages = MutableStateFlow(defaultCatalogPackages)
     val catalogPackages: Flow<List<SpaServicePackage>> = _catalogPackages.asStateFlow()
 
     fun addCatalogPackage(pkg: SpaServicePackage) {
         _catalogPackages.value = listOf(pkg) + _catalogPackages.value
+        repositoryScope.launch {
+            database?.catalogPackageDao()?.insert(CatalogPackageEntity.fromDomain(pkg))
+        }
     }
 
     fun updateCatalogPackage(pkg: SpaServicePackage) {
         _catalogPackages.value = _catalogPackages.value.map { if (it.id == pkg.id) pkg else it }
+        repositoryScope.launch {
+            database?.catalogPackageDao()?.update(CatalogPackageEntity.fromDomain(pkg))
+        }
     }
 
     fun deleteCatalogPackage(packageId: String) {
         _catalogPackages.value = _catalogPackages.value.filterNot { it.id == packageId }
+        repositoryScope.launch {
+            database?.catalogPackageDao()?.deleteById(packageId)
+        }
     }
 
     // --- QUẢN LÝ ĐỘI NGŨ KỸ THUẬT VIÊN ---
-    private val _technicians = MutableStateFlow(
-        listOf(
-            TechnicianStaff(
-                id = "TECH-01",
-                name = "Thảo My",
-                phone = "0912 111 222",
-                specialty = "Chuyên viên Điều Trị & Phục Hồi Da",
-                rating = 4.95f,
-                isActive = true
-            ),
-            TechnicianStaff(
-                id = "TECH-02",
-                name = "Hương Giang",
-                phone = "0912 333 444",
-                specialty = "KTV Dưỡng Sinh & Trị Liệu Cổ Vai Gáy",
-                rating = 4.90f,
-                isActive = true
-            ),
-            TechnicianStaff(
-                id = "TECH-03",
-                name = "Lan Phương",
-                phone = "0912 555 666",
-                specialty = "Chuyên viên Laser & Trẻ Hóa Da Công Nghệ Cao",
-                rating = 4.88f,
-                isActive = true
-            )
+    private val defaultTechnicians = listOf(
+        TechnicianStaff(
+            id = "TECH-01",
+            name = "Thảo My",
+            phone = "0912 111 222",
+            specialty = "Chuyên viên Điều Trị & Phục Hồi Da",
+            rating = 4.95f,
+            isActive = true
+        ),
+        TechnicianStaff(
+            id = "TECH-02",
+            name = "Hương Giang",
+            phone = "0912 333 444",
+            specialty = "KTV Dưỡng Sinh & Trị Liệu Cổ Vai Gáy",
+            rating = 4.90f,
+            isActive = true
+        ),
+        TechnicianStaff(
+            id = "TECH-03",
+            name = "Lan Phương",
+            phone = "0912 555 666",
+            specialty = "Chuyên viên Laser & Trẻ Hóa Da Công Nghệ Cao",
+            rating = 4.88f,
+            isActive = true
         )
     )
+
+    private val _technicians = MutableStateFlow(defaultTechnicians)
     val technicians: Flow<List<TechnicianStaff>> = _technicians.asStateFlow()
 
     fun addTechnician(tech: TechnicianStaff) {
         _technicians.value = _technicians.value + tech
+        repositoryScope.launch {
+            database?.technicianDao()?.insert(TechnicianEntity.fromDomain(tech))
+        }
     }
 
     fun updateTechnician(tech: TechnicianStaff) {
         _technicians.value = _technicians.value.map { if (it.id == tech.id) tech else it }
+        repositoryScope.launch {
+            database?.technicianDao()?.update(TechnicianEntity.fromDomain(tech))
+        }
     }
 
     fun deleteTechnician(id: String) {
         _technicians.value = _technicians.value.filterNot { it.id == id }
+        repositoryScope.launch {
+            database?.technicianDao()?.deleteById(id)
+        }
     }
 
     // --- DANH SÁCH KHÁCH HÀNG (CRM) ---
@@ -463,6 +496,9 @@ class SpaRepository(context: Context? = null) {
         currentList.add(0, client)
         _clients.value = currentList
         _selectedClientId.value = client.id
+        repositoryScope.launch {
+            database?.clientDao()?.insert(ClientEntity.fromDomain(client))
+        }
     }
 
     fun updateClient(client: Client) {
@@ -472,6 +508,9 @@ class SpaRepository(context: Context? = null) {
             currentList[index] = client
             _clients.value = currentList
         }
+        repositoryScope.launch {
+            database?.clientDao()?.insert(ClientEntity.fromDomain(client))
+        }
     }
 
     fun deleteClient(clientId: String) {
@@ -480,6 +519,9 @@ class SpaRepository(context: Context? = null) {
         _clients.value = currentList
         if (_selectedClientId.value == clientId) {
             _selectedClientId.value = null
+        }
+        repositoryScope.launch {
+            database?.clientDao()?.deleteById(clientId)
         }
     }
 
@@ -1086,6 +1128,9 @@ class SpaRepository(context: Context? = null) {
         current.add(appointment)
         current.sortBy { it.startTime }
         _appointments.value = current
+        repositoryScope.launch {
+            database?.appointmentDao()?.insert(AppointmentEntity.fromDomain(appointment))
+        }
     }
 
     fun updateAppointmentStatus(appointmentId: String, status: AppointmentStatus) {
@@ -1093,8 +1138,12 @@ class SpaRepository(context: Context? = null) {
         val index = current.indexOfFirst { it.id == appointmentId }
         if (index != -1) {
             val appt = current[index]
-            current[index] = appt.copy(status = status)
+            val updated = appt.copy(status = status)
+            current[index] = updated
             _appointments.value = current
+            repositoryScope.launch {
+                database?.appointmentDao()?.insert(AppointmentEntity.fromDomain(updated))
+            }
 
             // Khi bấm hoàn thành các gói trừ dịch vụ thì tự trừ buổi của khách hàng đi
             if (status == AppointmentStatus.COMPLETED) {
@@ -1107,6 +1156,9 @@ class SpaRepository(context: Context? = null) {
         val current = _appointments.value.toMutableList()
         current.removeAll { it.id == appointmentId }
         _appointments.value = current
+        repositoryScope.launch {
+            database?.appointmentDao()?.deleteById(appointmentId)
+        }
     }
 
     // --- LỊCH SỬ GIAO DỊCH & HÓA ĐƠN ---
@@ -1332,6 +1384,11 @@ class SpaRepository(context: Context? = null) {
         _selectedClientId.value = null
         _appointments.value = emptyList()
         _transactions.value = emptyList()
+        repositoryScope.launch {
+            database?.clientDao()?.deleteAll()
+            database?.appointmentDao()?.deleteAll()
+            database?.transactionDao()?.deleteAll()
+        }
     }
 
     /**
@@ -1340,9 +1397,20 @@ class SpaRepository(context: Context? = null) {
     fun restoreDemoData() {
         prefs?.edit()?.putBoolean("key_is_real_usage", false)?.apply()
         _isRealUsageMode.value = false
-        _clients.value = demoClients
-        _appointments.value = buildDemoAppointments()
-        _transactions.value = buildDemoTransactions()
+        val demoC = demoClients
+        val demoA = buildDemoAppointments()
+        val demoT = buildDemoTransactions()
+        _clients.value = demoC
+        _appointments.value = demoA
+        _transactions.value = demoT
+        repositoryScope.launch {
+            database?.clientDao()?.deleteAll()
+            database?.clientDao()?.insertAll(demoC.map { ClientEntity.fromDomain(it) })
+            database?.appointmentDao()?.deleteAll()
+            database?.appointmentDao()?.insertAll(demoA.map { AppointmentEntity.fromDomain(it) })
+            database?.transactionDao()?.deleteAll()
+            database?.transactionDao()?.insertAll(demoT.map { TransactionEntity.fromDomain(it) })
+        }
     }
 
     // --- THU NGÂN & TẠO MÃ VIETQR (LẤY TÀI KHOẢN TỪ STORE PROFILE) ---
@@ -1393,6 +1461,80 @@ class SpaRepository(context: Context? = null) {
         )
     )
     val currentInvoice: Flow<CheckoutInvoice> = _currentInvoice.asStateFlow()
+
+    init {
+        if (database != null) {
+            repositoryScope.launch {
+                val clientCount = database.clientDao().getCount()
+                val isReal = _isRealUsageMode.value
+                if (clientCount == 0 && !isReal) {
+                    // Cài đặt lần đầu: Nạp dữ liệu mẫu vào Room Database
+                    database.clientDao().insertAll(demoClients.map { ClientEntity.fromDomain(it) })
+                    database.appointmentDao().insertAll(demoAppointments.map { AppointmentEntity.fromDomain(it) })
+                    database.transactionDao().insertAll(demoTransactions.map { TransactionEntity.fromDomain(it) })
+                    database.storeProfileDao().insertOrUpdate(StoreProfileEntity.fromDomain(defaultStoreProfile))
+                    database.catalogPackageDao().insertAll(defaultCatalogPackages.map { CatalogPackageEntity.fromDomain(it) })
+                    database.technicianDao().insertAll(defaultTechnicians.map { TechnicianEntity.fromDomain(it) })
+                } else {
+                    // Đảm bảo cấu hình cửa hàng, gói dịch vụ và kỹ thuật viên luôn có sẵn
+                    if (database.storeProfileDao().getStoreProfileSync() == null) {
+                        database.storeProfileDao().insertOrUpdate(StoreProfileEntity.fromDomain(defaultStoreProfile))
+                    }
+                    if (database.catalogPackageDao().getCount() == 0) {
+                        database.catalogPackageDao().insertAll(defaultCatalogPackages.map { CatalogPackageEntity.fromDomain(it) })
+                    }
+                    if (database.technicianDao().getCount() == 0) {
+                        database.technicianDao().insertAll(defaultTechnicians.map { TechnicianEntity.fromDomain(it) })
+                    }
+                }
+
+                // Lắng nghe thay đổi từ Room Database để cập nhật đồng bộ các StateFlow
+                launch {
+                    database.clientDao().getAllClients().collect { list ->
+                        _clients.value = list.map { it.toDomain() }
+                    }
+                }
+                launch {
+                    database.appointmentDao().getAllAppointments().collect { list ->
+                        _appointments.value = list.map { it.toDomain() }
+                    }
+                }
+                launch {
+                    database.transactionDao().getAllTransactions().collect { list ->
+                        _transactions.value = list.map { it.toDomain() }
+                    }
+                }
+                launch {
+                    database.storeProfileDao().getStoreProfile().collect { entity ->
+                        entity?.let {
+                            val profile = it.toDomain()
+                            _storeProfile.value = profile
+                            _currentInvoice.value = _currentInvoice.value.copy(
+                                selectedBank = profile.selectedBank,
+                                accountNumber = profile.accountNumber,
+                                accountHolder = profile.accountHolder,
+                                defaultMemo = profile.defaultMemo
+                            )
+                        }
+                    }
+                }
+                launch {
+                    database.catalogPackageDao().getAllPackages().collect { list ->
+                        if (list.isNotEmpty()) {
+                            _catalogPackages.value = list.map { it.toDomain() }
+                        }
+                    }
+                }
+                launch {
+                    database.technicianDao().getAllTechnicians().collect { list ->
+                        if (list.isNotEmpty()) {
+                            _technicians.value = list.map { it.toDomain() }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     fun updateBank(bank: BankOption, accountNumber: String, accountHolder: String, defaultMemo: String = "SPACARE") {
         _currentInvoice.value = _currentInvoice.value.copy(
@@ -1450,6 +1592,9 @@ class SpaRepository(context: Context? = null) {
             isPaid = true
         )
         _transactions.value = listOf(newTx) + _transactions.value
+        repositoryScope.launch {
+            database?.transactionDao()?.insert(TransactionEntity.fromDomain(newTx))
+        }
     }
 
     fun resetInvoice() {
@@ -1551,5 +1696,25 @@ class SpaRepository(context: Context? = null) {
                 )
             }
         )
+    }
+
+    // --- SAO LƯU & KHÔI PHỤC DỮ LIỆU (EXPORT / IMPORT JSON) ---
+    suspend fun exportBackup(context: Context): Result<File> {
+        val db = database ?: return Result.failure(IllegalStateException("Cơ sở dữ liệu chưa sẵn sàng"))
+        return BackupManager.exportBackup(context, db)
+    }
+
+    fun shareBackup(context: Context, backupFile: File) {
+        BackupManager.shareBackupFile(context, backupFile)
+    }
+
+    suspend fun importBackup(context: Context, jsonContent: String): Result<BackupStats> {
+        val db = database ?: return Result.failure(IllegalStateException("Cơ sở dữ liệu chưa sẵn sàng"))
+        val result = BackupManager.importBackup(context, db, jsonContent)
+        if (result.isSuccess) {
+            prefs?.edit()?.putBoolean("key_is_real_usage", true)?.apply()
+            _isRealUsageMode.value = true
+        }
+        return result
     }
 }

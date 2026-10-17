@@ -28,6 +28,9 @@ import coil.compose.AsyncImage
 import com.spacare.manager.R
 import com.spacare.manager.core.designsystem.theme.*
 import com.spacare.manager.domain.model.*
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -41,7 +44,8 @@ enum class SettingsTab(val title: String) {
     PACKAGES("Gói Liệu Trình"),
     TECHNICIANS("Đội Ngũ KTV"),
     PROFILE("Thông Tin Spa"),
-    LICENSE("Bản Quyền")
+    LICENSE("Bản Quyền"),
+    BACKUP("Sao Lưu & Dữ Liệu")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,8 +55,13 @@ fun StoreSettingsScreen(
     catalogPackages: List<SpaServicePackage>,
     technicians: List<TechnicianStaff>,
     isRealUsageMode: Boolean = false,
+    clientCount: Int = 0,
+    appointmentCount: Int = 0,
+    transactionCount: Int = 0,
     onStartRealUsage: () -> Unit = {},
     onRestoreDemoData: () -> Unit = {},
+    onExportBackup: () -> Unit = {},
+    onImportBackup: (String) -> Unit = {},
     onUpdateStoreProfile: (StoreProfile) -> Unit,
     onAddCatalogPackage: (SpaServicePackage) -> Unit,
     onUpdateCatalogPackage: (SpaServicePackage) -> Unit,
@@ -94,6 +103,28 @@ fun StoreSettingsScreen(
     var licenseError by remember { mutableStateOf<String?>(null) }
     var showConfirmRealUsageDialog by remember { mutableStateOf(false) }
     var showConfirmRestoreDemoDialog by remember { mutableStateOf(false) }
+    var showConfirmImportDialog by remember { mutableStateOf(false) }
+    var pendingImportJson by remember { mutableStateOf<String?>(null) }
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val content = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    inputStream.bufferedReader(Charsets.UTF_8).readText()
+                }
+                if (!content.isNullOrBlank()) {
+                    pendingImportJson = content
+                    showConfirmImportDialog = true
+                } else {
+                    Toast.makeText(context, "File sao lưu trống!", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Không thể đọc file: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -878,8 +909,222 @@ fun StoreSettingsScreen(
                         }
                     }
                 }
+
+                // 6. TAB SAO LƯU & DỮ LIỆU
+                if (activeTab == SettingsTab.BACKUP) {
+                    // 1. Thẻ Cơ Sở Dữ Liệu Cục Bộ (Room SQLite)
+                    item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.medium,
+                                colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(18.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Storage,
+                                                contentDescription = null,
+                                                tint = SageGreenPrimary
+                                            )
+                                            Text(
+                                                text = "Cơ Sở Dữ Liệu SQLite (Room)",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = CharcoalTextPrimary
+                                            )
+                                        }
+
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = SuccessGreenContainer
+                                        ) {
+                                            Text(
+                                                text = "Bảo Mật 100%",
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = SuccessGreen
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Text(
+                                        text = "Toàn bộ dữ liệu hồ sơ khách hàng, lịch hẹn, hình ảnh trước sau và doanh thu được lưu an toàn trực tiếp trong bộ nhớ máy bằng Room Database (SQLite). Dữ liệu hoạt động offline độc lập, không gửi lên đám mây, bảo mật tuyệt đối.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextSecondary,
+                                        lineHeight = 19.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    HorizontalDivider(color = WarmBeigeBorder.copy(alpha = 0.5f))
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Text(
+                                        text = "THỐNG KÊ DỮ LIỆU HIỆN TẠI",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SageGreenPrimary
+                                    )
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceAround
+                                    ) {
+                                        DataStatItem(count = clientCount, label = "Khách Hàng", icon = Icons.Default.People)
+                                        DataStatItem(count = appointmentCount, label = "Lịch Hẹn", icon = Icons.Default.CalendarMonth)
+                                        DataStatItem(count = transactionCount, label = "Giao Dịch", icon = Icons.Default.ReceiptLong)
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceAround
+                                    ) {
+                                        DataStatItem(count = catalogPackages.size, label = "Gói Dịch Vụ", icon = Icons.Default.MedicalServices)
+                                        DataStatItem(count = technicians.size, label = "Kỹ Thuật Viên", icon = Icons.Default.Badge)
+                                    }
+                                }
+                            }
+                        }
+
+                        // 2. Thẻ Xuất File Sao Lưu (.json)
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.medium,
+                                colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(18.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudUpload,
+                                            contentDescription = null,
+                                            tint = SageGreenPrimary
+                                        )
+                                        Text(
+                                            text = "Xuất Bản Sao Lưu (.json)",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CharcoalTextPrimary
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Text(
+                                        text = "Đóng gói toàn bộ thông tin cơ sở Spa, danh sách khách hàng, gói liệu trình, lịch hẹn và lịch sử hóa đơn thành file dự phòng .json. Bạn có thể gửi file qua Zalo, sao lưu lên Google Drive hoặc chuyển sang máy khác.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextSecondary,
+                                        lineHeight = 18.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    Button(
+                                        onClick = onExportBackup,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = SageGreenPrimary,
+                                            contentColor = Color.White
+                                        ),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Share,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = Color.White
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Xuất & Chia Sẻ Bản Sao Lưu (.json)",
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Thẻ Nhập File Sao Lưu (.json)
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.medium,
+                                colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(18.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudDownload,
+                                            contentDescription = null,
+                                            tint = SpaGoldPrimary
+                                        )
+                                        Text(
+                                            text = "Khôi Phục Dữ Liệu Từ File (.json)",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CharcoalTextPrimary
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Text(
+                                        text = "Chọn file sao lưu .json đã lưu trước đó để phục hồi lại dữ liệu khi đổi điện thoại mới hoặc cần phục hồi phiên làm việc.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextSecondary,
+                                        lineHeight = 18.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    OutlinedButton(
+                                        onClick = { filePickerLauncher.launch("*/*") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SpaGoldPrimary),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, SpaGoldPrimary)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.FolderOpen,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = SpaGoldPrimary
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Chọn File Sao Lưu Để Phục Hồi",
+                                            fontWeight = FontWeight.Bold,
+                                            color = SpaGoldPrimary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-        }
     }
 
     // Modal chọn ngân hàng
@@ -1161,6 +1406,85 @@ fun StoreSettingsScreen(
                 }
             },
             containerColor = WarmBeigeSurface
+        )
+    }
+
+    // Dialog xác nhận khôi phục bản sao lưu từ file
+    if (showConfirmImportDialog && pendingImportJson != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showConfirmImportDialog = false
+                pendingImportJson = null
+            },
+            title = {
+                Text(
+                    text = "Xác Nhận Khôi Phục Dữ Liệu?",
+                    fontWeight = FontWeight.Bold,
+                    color = CharcoalTextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Thao tác này sẽ ghi đè dữ liệu hiện tại bằng dữ liệu từ file sao lưu đã chọn.\n\nBạn có chắc chắn muốn tiến hành khôi phục?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = CharcoalTextSecondary,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val json = pendingImportJson ?: ""
+                        showConfirmImportDialog = false
+                        pendingImportJson = null
+                        onImportBackup(json)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary, contentColor = Color.White)
+                ) {
+                    Text("Khôi Phục Ngay", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = {
+                    showConfirmImportDialog = false
+                    pendingImportJson = null
+                }) {
+                    Text("Hủy")
+                }
+            },
+            containerColor = WarmBeigeSurface
+        )
+    }
+}
+
+@Composable
+private fun DataStatItem(count: Int, label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = SageGreenPrimary
+            )
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = CharcoalTextPrimary
+            )
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = CharcoalTextSecondary,
+            fontSize = 11.sp
         )
     }
 }

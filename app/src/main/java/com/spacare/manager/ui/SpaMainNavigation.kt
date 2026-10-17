@@ -21,6 +21,8 @@ import com.spacare.manager.feature.settings.StoreSettingsScreen
 import com.spacare.manager.core.license.LicenseManager
 import com.spacare.manager.feature.license.TrialExpiredLockDialog
 import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
+import kotlinx.coroutines.launch
 
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
@@ -45,6 +47,7 @@ fun SpaMainApp(
     var checkoutFromAppointment by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val repository = repository ?: remember { SpaRepository(context) }
     val licenseManager = remember { LicenseManager.getInstance(context) }
     var licenseStatus by remember { mutableStateOf(licenseManager.getLicenseStatus()) }
@@ -263,11 +266,39 @@ fun SpaMainApp(
                     catalogPackages = catalogPackages,
                     technicians = technicians,
                     isRealUsageMode = isRealUsageMode,
+                    clientCount = clients.size,
+                    appointmentCount = appointments.size,
+                    transactionCount = transactions.size,
                     onStartRealUsage = {
                         repository.startRealUsage()
                     },
                     onRestoreDemoData = {
                         repository.restoreDemoData()
+                    },
+                    onExportBackup = {
+                        coroutineScope.launch {
+                            val result = repository.exportBackup(context)
+                            result.onSuccess { file ->
+                                Toast.makeText(context, "Xuất file sao lưu thành công: ${file.name}", Toast.LENGTH_SHORT).show()
+                                repository.shareBackup(context, file)
+                            }.onFailure { e ->
+                                Toast.makeText(context, "Lỗi xuất file: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    },
+                    onImportBackup = { jsonContent ->
+                        coroutineScope.launch {
+                            val result = repository.importBackup(context, jsonContent)
+                            result.onSuccess { stats ->
+                                Toast.makeText(
+                                    context,
+                                    "Khôi phục thành công: ${stats.clientCount} khách hàng, ${stats.appointmentCount} lịch hẹn, ${stats.transactionCount} giao dịch!",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }.onFailure { e ->
+                                Toast.makeText(context, "Lỗi khôi phục: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                            }
+                        }
                     },
                     onUpdateStoreProfile = { updated ->
                         repository.updateStoreProfile(updated)
