@@ -749,7 +749,7 @@ fun RevenueDashboardScreen(
     // Modal Xác nhận Xuất Báo Cáo CSV
     if (showExportConfirmDialog) {
         val safeDateName = selectedDate.replace("/", "_")
-        val fileName = "BaoCao_DoanhThu_SpaCare_$safeDateName.csv"
+        val fileName = "BaoCao_DoanhThu_VanDinhSkinlab_$safeDateName.csv"
 
         AlertDialog(
             onDismissRequest = { showExportConfirmDialog = false },
@@ -791,11 +791,11 @@ fun RevenueDashboardScreen(
 fun exportReportToCsv(context: Context, dateStr: String, metrics: DashboardMetrics): Boolean {
     return try {
         val safeDateName = dateStr.replace("/", "_")
-        val fileName = "BaoCao_DoanhThu_SpaCare_$safeDateName.csv"
+        val fileName = "BaoCao_DoanhThu_VanDinhSkinlab_$safeDateName.csv"
         val file = File(context.getExternalFilesDir(null), fileName)
 
         val csvContent = buildString {
-            append("BÁO CÁO DOANH THU & HOẠT ĐỘNG - SPACARE MANAGER\n")
+            append("BÁO CÁO DOANH THU & HOẠT ĐỘNG - VĂN ĐỊNH SKINLAB\n")
             append("Ngày báo cáo,$dateStr\n")
             append("Thời gian xuất file,${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}\n\n")
 
@@ -845,9 +845,9 @@ fun exportReportToCsv(context: Context, dateStr: String, metrics: DashboardMetri
         e.printStackTrace()
         // Nếu FileProvider chưa cấu hình, vẫn lưu file bình thường vào bộ nhớ ngoài
         try {
-            val fileName = "BaoCao_DoanhThu_SpaCare_${dateStr.replace("/", "_")}.csv"
+            val fileName = "BaoCao_DoanhThu_VanDinhSkinlab_${dateStr.replace("/", "_")}.csv"
             val file = File(context.filesDir, fileName)
-            file.writeText("Bao cao SpaCare ngay $dateStr: ${metrics.todayRevenue} VND")
+            file.writeText("Bao cao Van Dinh Skinlab ngay $dateStr: ${metrics.todayRevenue} VND")
             true
         } catch (ex: Exception) {
             false

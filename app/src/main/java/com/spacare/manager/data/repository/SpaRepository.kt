@@ -36,13 +36,13 @@ class SpaRepository(context: Context? = null) {
 
     // --- CẤU HÌNH CỬA HÀNG & TÀI KHOẢN NGÂN HÀNG SPA ---
     private val defaultStoreProfile = StoreProfile(
-        name = "SpaCare Wellness Center",
+        name = "Văn Định Skinlab",
         hotline = "1900 6868",
         address = "128 Phan Xích Long, P. 2, Q. Phú Nhuận, TP.HCM",
         selectedBank = SupportedBanks[0], // Vietcombank làm gợi ý ban đầu
         accountNumber = "1023456789",
-        accountHolder = "SPA CARE WELLNESS CENTER",
-        defaultMemo = "SPACARE"
+        accountHolder = "VAN DINH SKINLAB",
+        defaultMemo = "VANDINH"
     )
 
     private val _storeProfile = MutableStateFlow(defaultStoreProfile)

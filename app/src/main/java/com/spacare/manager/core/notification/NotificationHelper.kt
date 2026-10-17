@@ -19,7 +19,7 @@ import com.spacare.manager.R
 object NotificationHelper {
 
     const val CHANNEL_ID = "spacare_appointment_reminders"
-    const val CHANNEL_NAME = "Nhắc Nhở Lịch Hẹn SpaCare"
+    const val CHANNEL_NAME = "Nhắc Nhở Lịch Hẹn Văn Định Skinlab"
     const val CHANNEL_DESC = "Thông báo khi lịch hẹn trị liệu sắp đến giờ phục vụ"
 
     fun createNotificationChannel(context: Context) {
@@ -106,7 +106,7 @@ object NotificationHelper {
                 NotificationCompat.BigTextStyle()
                     .setBigContentTitle(title)
                     .bigText(bigText)
-                    .setSummaryText("SpaCare Manager • Còn ~$minutesBefore phút")
+                    .setSummaryText("Văn Định Skinlab • Còn ~$minutesBefore phút")
             )
             .setColor(Color.parseColor("#2D5A43"))
             .setPriority(NotificationCompat.PRIORITY_HIGH)

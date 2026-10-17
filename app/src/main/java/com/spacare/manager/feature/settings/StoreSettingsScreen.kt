@@ -288,7 +288,7 @@ fun StoreSettingsScreen(
                                     value = defaultMemo,
                                     onValueChange = { defaultMemo = it },
                                     label = { Text("Nội dung chuyển khoản mặc định *") },
-                                    placeholder = { Text("Vd: SPACARE") },
+                                    placeholder = { Text("Vd: VANDINH") },
                                     leadingIcon = { Icon(Icons.AutoMirrored.Filled.ShortText, contentDescription = null, tint = SageGreenPrimary) },
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true

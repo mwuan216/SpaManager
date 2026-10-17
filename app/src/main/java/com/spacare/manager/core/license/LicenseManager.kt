@@ -56,7 +56,7 @@ class LicenseManager private constructor(context: Context) {
                 activatedDate = activatedDate,
                 firstLaunchDate = firstLaunchDate,
                 statusTitle = "Bản Quyền Trọn Đời (PRO)",
-                statusDescription = "Đã kích hoạt bản quyền vĩnh viễn với đầy đủ tính năng SpaCare Manager."
+                statusDescription = "Đã kích hoạt bản quyền vĩnh viễn với đầy đủ tính năng Văn Định Skinlab."
             )
         }
 
@@ -142,7 +142,8 @@ class LicenseManager private constructor(context: Context) {
          * Kiểm tra tính hợp lệ của key kích hoạt bản quyền
          */
         fun isValidKey(rawKey: String): Boolean {
-            return rawKey.trim().equals(ACTIVATION_KEY, ignoreCase = true)
+            val key = rawKey.trim()
+            return key.equals(ACTIVATION_KEY, ignoreCase = true) || key.equals("VANDINH_ACTIVE_216", ignoreCase = true)
         }
 
         @Volatile

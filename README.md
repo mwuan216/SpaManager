@@ -1,4 +1,4 @@
-# SpaCare Manager 💆‍♀️🌿
+# Văn Định Skinlab 💆‍♀️🌿
 ### Ứng Dụng Quản Lý Spa, Thẩm Mỹ Viện & Wellness Mobile-First Chuyên Nghiệp
 
 ![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Jetpack%20Compose-green)
@@ -6,7 +6,7 @@
 ![Language](https://img.shields.io/badge/Language-Kotlin%202.0-purple)
 ![Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture%20%2B%20MVI%2FMVVM-blue)
 
-**SpaCare Manager** là giải pháp phần mềm quản lý tối ưu hóa cho màn hình di động và tablet quầy lễ tân của các cơ sở Spa, Thẩm mỹ viện và Viện chăm sóc sức khỏe sắc đẹp cao cấp. Ứng dụng được thiết kế theo chuẩn **Material Design 3**, mang phong cách tinh tế, ấm áp và thanh lịch với bảng màu tự nhiên (*Warm Beige & Sage Green*).
+**Văn Định Skinlab** là giải pháp phần mềm quản lý tối ưu hóa cho màn hình di động và tablet quầy lễ tân của các cơ sở Spa, Thẩm mỹ viện và Viện chăm sóc sức khỏe sắc đẹp cao cấp. Ứng dụng được thiết kế theo chuẩn **Material Design 3**, mang phong cách tinh tế, ấm áp và thanh lịch với bảng màu tự nhiên (*Warm Beige & Sage Green*).
 
 ---
 
@@ -16,7 +16,7 @@
 |:---|:---|:---|:---|
 | 🟢 **Full Debug APK** | `app-debug.apk` | Bản test đầy đủ tính năng & toàn bộ logic hoạt động | [👉 **Tải app-debug.apk**](https://github.com/mwuan216/SpaManager/raw/main/apk/app-debug.apk) |
 | 🎨 **Demo UI APK** | `spacare_demo.apk` | Bản xem trước giao diện Demo UI (chỉ tham khảo UI, không logic) | [👉 **Tải spacare_demo.apk**](https://github.com/mwuan216/SpaManager/raw/main/apk/spacare_demo.apk) |
-| 🚀 **Release APK** | `app-release.apk` | Bản chính thức tối ưu hiệu năng & dung lượng (13.6 MB) | [👉 **Tải app-release.apk**](https://github.com/mwuan216/SpaManager/raw/main/apk/app-release.apk) |
+| 🚀 **Release APK** | `app-release.apk` | Bản chính thức tối ưu hiệu năng & dung lượng | [👉 **Tải app-release.apk**](https://github.com/mwuan216/SpaManager/raw/main/apk/app-release.apk) |
 
 > 💡 **Hướng dẫn cài đặt trên Android:** Tải file APK về điện thoại ➔ Mở file ➔ Cho phép "Cài đặt ứng dụng không rõ nguồn gốc" (Install unknown apps) nếu được hỏi ➔ Bấm **Cài đặt**.
 
@@ -129,5 +129,5 @@ curl -X POST http://localhost:3000/api/v1/webhooks/bank-payment \
 ---
 
 ## 📄 Bản Quyền & Giấy Phép
-Dự án được phát triển phục vụ ngành Spa & Thẩm mỹ viện cao cấp. Giữ toàn quyền tác giả © 2026 SpaCare Manager.
+Dự án được phát triển phục vụ ngành Spa & Thẩm mỹ viện cao cấp. Giữ toàn quyền tác giả © 2026 Văn Định Skinlab.
 

@@ -88,7 +88,7 @@ fun TrialExpiredLockDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Thời gian trải nghiệm miễn phí 3 ngày của SpaCare Manager đã kết thúc. Vui lòng nhập Key kích hoạt bản quyền để tiếp tục sử dụng phần mềm quản lý Spa.",
+                    text = "Thời gian trải nghiệm miễn phí 3 ngày của Văn Định Skinlab đã kết thúc. Vui lòng nhập Key kích hoạt bản quyền để tiếp tục sử dụng phần mềm quản lý Spa.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = CharcoalTextSecondary,
                     textAlign = TextAlign.Center,
@@ -167,7 +167,7 @@ fun TrialExpiredLockDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Liên hệ mua bản quyền / Hỗ trợ: support@spacare.vn",
+                    text = "Liên hệ mua bản quyền / Hỗ trợ: Văn Định Skinlab",
                     style = MaterialTheme.typography.bodySmall,
                     color = CharcoalTextMuted,
                     fontSize = 12.sp,
