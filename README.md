@@ -14,7 +14,8 @@
 
 | Phiên Bản | File Cài Đặt | Mô Tả | Link Tải Trực Tiếp |
 |:---|:---|:---|:---|
-| 🟢 **Debug APK** | `app-debug.apk` | Bản test đầy đủ tính năng & log gỡ lỗi (Cập nhật sau mỗi commit) | [👉 **Tải app-debug.apk**](https://github.com/mwuan216/SpaManager/raw/main/apk/app-debug.apk) |
+| 🟢 **Full Debug APK** | `app-debug.apk` | Bản test đầy đủ tính năng & toàn bộ logic hoạt động | [👉 **Tải app-debug.apk**](https://github.com/mwuan216/SpaManager/raw/main/apk/app-debug.apk) |
+| 🎨 **Demo UI APK** | `spacare_demo.apk` | Bản xem trước giao diện Demo UI (chỉ tham khảo UI, không logic) | [👉 **Tải spacare_demo.apk**](https://github.com/mwuan216/SpaManager/raw/main/apk/spacare_demo.apk) |
 | 🚀 **Release APK** | `app-release.apk` | Bản chính thức tối ưu hiệu năng | *(Phát hành khi có yêu cầu release)* |
 
 > 💡 **Hướng dẫn cài đặt trên Android:** Tải file APK về điện thoại ➔ Mở file ➔ Cho phép "Cài đặt ứng dụng không rõ nguồn gốc" (Install unknown apps) nếu được hỏi ➔ Bấm **Cài đặt**.
