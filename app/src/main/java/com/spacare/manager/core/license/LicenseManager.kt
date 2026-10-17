@@ -132,8 +132,8 @@ class LicenseManager private constructor(context: Context) {
         private const val KEY_ACTIVATED_KEY = "key_activated_key"
         private const val KEY_ACTIVATED_DATE = "key_activated_date"
 
-        // 3 ngày dùng thử = 3 * 24 * 60 * 60 * 1000 = 259_200_000 ms
-        const val TRIAL_DURATION_MS = 3 * 24 * 60 * 60 * 1000L
+        // 15 ngày dùng thử = 15 * 24 * 60 * 60 * 1000 = 259_200_000 ms
+        const val TRIAL_DURATION_MS = 15 * 24 * 60 * 60 * 1000L
 
         // Key kích hoạt bản quyền thương mại duy nhất
         const val ACTIVATION_KEY = "SPACARE_ACTIVE_216"
