@@ -78,7 +78,8 @@ fun SpaMainApp(
     val unpaidAppointments = remember(appointments) {
         appointments.filter {
             it.status != com.spacare.manager.domain.model.AppointmentStatus.COMPLETED &&
-            it.status != com.spacare.manager.domain.model.AppointmentStatus.CANCELLED
+            it.status != com.spacare.manager.domain.model.AppointmentStatus.CANCELLED &&
+            it.price > 0L // Bỏ các lịch hẹn trừ gói dịch vụ (0đ) khỏi danh sách chờ thu ngân QR
         }
     }
 

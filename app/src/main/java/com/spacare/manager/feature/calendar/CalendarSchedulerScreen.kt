@@ -589,36 +589,58 @@ fun AppointmentScheduleCard(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = CharcoalTextMuted,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = appointment.staffName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = CharcoalTextSecondary
-                        )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = CharcoalTextMuted,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = appointment.staffName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CharcoalTextSecondary
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.MeetingRoom,
+                                contentDescription = null,
+                                tint = CharcoalTextMuted,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = appointment.roomName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CharcoalTextSecondary
+                            )
+                        }
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.MeetingRoom,
-                            contentDescription = null,
-                            tint = CharcoalTextMuted,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = appointment.roomName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = CharcoalTextSecondary
-                        )
+                    if (appointment.price <= 0L) {
+                        Surface(
+                            shape = CircleShape,
+                            color = SpaGoldContainer
+                        ) {
+                            Text(
+                                text = "Trừ gói",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = SpaGoldPrimary
+                            )
+                        }
                     }
                 }
 
@@ -1061,9 +1083,37 @@ fun AppointmentDetailDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Chỉ hiển thị nút Chuyển sang Thu Ngân nếu lịch hẹn chưa hoàn thành và chưa bị hủy
-                val canCheckout = appointment.status != AppointmentStatus.COMPLETED && appointment.status != AppointmentStatus.CANCELLED
-                if (canCheckout) {
+                // Với các lịch hẹn trừ gói dịch vụ: Bỏ hẳn option chuyển sang thu ngân QR
+                val isPackageSession = appointment.price <= 0L
+                val canCheckout = !isPackageSession && appointment.status != AppointmentStatus.COMPLETED && appointment.status != AppointmentStatus.CANCELLED
+
+                if (isPackageSession) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = SpaGoldContainer.copy(alpha = 0.5f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MedicalServices,
+                                contentDescription = null,
+                                tint = SpaGoldPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Lịch hẹn trừ gói dịch vụ (Không phát sinh thu ngân QR)",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = SpaGoldPrimary
+                            )
+                        }
+                    }
+                } else if (canCheckout) {
                     Button(
                         onClick = onCheckout,
                         modifier = Modifier.fillMaxWidth(),
