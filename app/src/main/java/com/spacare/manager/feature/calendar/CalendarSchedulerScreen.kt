@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.spacare.manager.R
 import com.spacare.manager.core.designsystem.theme.*
+import com.spacare.manager.core.notification.AppointmentReminderScheduler
+import com.spacare.manager.core.notification.NotificationHelper
 import com.spacare.manager.domain.model.Appointment
 import com.spacare.manager.domain.model.AppointmentStatus
 import java.text.NumberFormat
@@ -75,6 +77,7 @@ fun CalendarSchedulerScreen(
     var selectedRoomFilter by remember { mutableStateOf<String?>(null) }
 
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showNotificationDialog by remember { mutableStateOf(false) }
     var activeAppointmentDetail by remember { mutableStateOf<Appointment?>(null) }
 
     // Dải 7 ngày xung quanh ngày đang chọn (-3 ngày đến +3 ngày)
@@ -167,6 +170,13 @@ fun CalendarSchedulerScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showNotificationDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.NotificationsActive,
+                            contentDescription = "Trung tâm thông báo",
+                            tint = SageGreenPrimary
+                        )
+                    }
                     IconButton(onClick = { showCalendarDatePicker = true }) {
                         Icon(Icons.Default.CalendarMonth, contentDescription = "Chọn ngày bất kỳ", tint = SageGreenPrimary)
                     }
@@ -442,6 +452,30 @@ fun CalendarSchedulerScreen(
                 selectedDateStr = newAppt.date // Tự động chuyển view sang ngày vừa tạo
                 showCreateDialog = false
                 Toast.makeText(context, "Đã tạo lịch hẹn thành công cho ngày ${newAppt.date}", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    // Dialog Trung tâm thông báo nhắc hẹn
+    if (showNotificationDialog) {
+        AppointmentNotificationCenterDialog(
+            appointments = appointments,
+            selectedDate = selectedDate,
+            onDismissRequest = { showNotificationDialog = false },
+            onTriggerNotification = { appt ->
+                NotificationHelper.showAppointmentApproachingNotification(
+                    context = context,
+                    appointmentId = appt.id,
+                    clientName = appt.clientName,
+                    clientPhone = appt.clientPhone,
+                    serviceName = appt.serviceName,
+                    startTime = appt.startTime,
+                    date = appt.date,
+                    roomName = appt.roomName,
+                    staffName = appt.staffName,
+                    minutesBefore = 15
+                )
+                Toast.makeText(context, "Đã phát thông báo nhắc hẹn cho ${appt.clientName}!", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -951,6 +985,7 @@ fun AppointmentDetailDialog(
     onCheckout: () -> Unit
 ) {
     val currencyFormatter = remember { NumberFormat.getNumberInstance(Locale("vi", "VN")) }
+    val context = LocalContext.current
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -1161,6 +1196,35 @@ fun AppointmentDetailDialog(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Nút phát thông báo nhắc nhở ngay
+                OutlinedButton(
+                    onClick = {
+                        NotificationHelper.showAppointmentApproachingNotification(
+                            context = context,
+                            appointmentId = appointment.id,
+                            clientName = appointment.clientName,
+                            clientPhone = appointment.clientPhone,
+                            serviceName = appointment.serviceName,
+                            startTime = appointment.startTime,
+                            date = appointment.date,
+                            roomName = appointment.roomName,
+                            staffName = appointment.staffName,
+                            minutesBefore = 15
+                        )
+                        Toast.makeText(context, "Đã gửi thông báo nhắc hẹn cho ${appointment.clientName}!", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SageGreenPrimary),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Gửi thông báo nhắc giờ hẹn ngay", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
         },
         containerColor = WarmBeigeSurface,
@@ -1178,6 +1242,212 @@ fun AppointmentDetailDialog(
         },
         dismissButton = {
             OutlinedButton(onClick = onDismissRequest) {
+                Text("Đóng")
+            }
+        }
+    )
+}
+
+@Composable
+fun AppointmentNotificationCenterDialog(
+    appointments: List<Appointment>,
+    selectedDate: String,
+    onDismissRequest: () -> Unit,
+    onTriggerNotification: (Appointment) -> Unit
+) {
+    val context = LocalContext.current
+    var selectedLeadTime by remember { mutableStateOf(15) }
+    val hasPermission = remember { NotificationHelper.hasNotificationPermission(context) }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        containerColor = WarmBeigeSurface,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(SageGreenContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.NotificationsActive,
+                        contentDescription = null,
+                        tint = SageGreenPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column {
+                    Text(
+                        text = "Trung Tâm Nhắc Hẹn",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = CharcoalTextPrimary
+                    )
+                    Text(
+                        text = "Thông báo khi sắp tới giờ hẹn",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = CharcoalTextSecondary
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Trạng thái quyền thông báo
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (hasPermission) SageGreenContainer.copy(alpha = 0.5f) else SpaGoldContainer.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (hasPermission) Icons.Default.CheckCircle else Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = if (hasPermission) SageGreenPrimary else SpaGoldPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (hasPermission) "Quyền thông báo: ĐÃ KÍCH HOẠT" else "Quyền thông báo: CHƯA BẬT",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (hasPermission) SageGreenPrimary else SpaGoldPrimary
+                            )
+                            Text(
+                                text = if (hasPermission)
+                                    "Hệ thống sẽ rung và hiển thị banner thông báo khi sắp đến giờ phục vụ khách."
+                                else
+                                    "Vui lòng bật quyền thông báo trong cài đặt để nhận thông báo đẩy.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CharcoalTextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+
+                // Nút test thông báo mẫu
+                Button(
+                    onClick = {
+                        NotificationHelper.showTestNotification(context)
+                        Toast.makeText(context, "Đã gửi thông báo thử nghiệm lên thanh trạng thái!", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SageGreenPrimary,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("🔔 Gửi Thử Thông Báo Mẫu Ngay", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+
+                HorizontalDivider(color = WarmBeigeBorder)
+
+                // Cấu hình thời gian báo trước
+                Text(
+                    text = "Thời gian nhắc trước giờ hẹn:",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = CharcoalTextPrimary
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(15 to "Trước 15p", 30 to "Trước 30p", 60 to "Trước 1h").forEach { (mins, label) ->
+                        FilterChip(
+                            selected = selectedLeadTime == mins,
+                            onClick = { selectedLeadTime = mins },
+                            label = { Text(label, fontSize = 12.sp) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = WarmBeigeBorder)
+
+                // Danh sách lịch hẹn hôm nay cần nhắc nhở
+                Text(
+                    text = "Danh sách lịch hẹn ngày $selectedDate:",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = CharcoalTextPrimary
+                )
+
+                val todayAppointments = appointments.filter { it.date == selectedDate }
+                if (todayAppointments.isEmpty()) {
+                    Text(
+                        text = "Không có cuộc hẹn nào trong ngày này.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = CharcoalTextMuted
+                    )
+                } else {
+                    todayAppointments.forEach { appt ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = WarmBeigeSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "${appt.startTime} • ${appt.clientName}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CharcoalTextPrimary
+                                    )
+                                    Text(
+                                        text = "${appt.serviceName} (${appt.roomName})",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextSecondary,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Button(
+                                    onClick = { onTriggerNotification(appt) },
+                                    shape = RoundedCornerShape(6.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = SageGreenContainer,
+                                        contentColor = SageGreenPrimary
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Báo ngay", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismissRequest,
+                colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary, contentColor = Color.White)
+            ) {
                 Text("Đóng")
             }
         }

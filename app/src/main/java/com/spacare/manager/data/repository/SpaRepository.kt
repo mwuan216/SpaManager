@@ -6,6 +6,7 @@ import com.spacare.manager.data.backup.BackupStats
 import com.spacare.manager.data.local.db.SpaDatabase
 import com.spacare.manager.data.local.db.entity.*
 import com.spacare.manager.domain.model.*
+import com.spacare.manager.core.notification.AppointmentReminderScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,6 +20,7 @@ import java.util.*
 
 class SpaRepository(context: Context? = null) {
 
+    private val appContext = context?.applicationContext
     private val database: SpaDatabase? = context?.let { SpaDatabase.getInstance(it) }
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -1131,6 +1133,9 @@ class SpaRepository(context: Context? = null) {
         repositoryScope.launch {
             database?.appointmentDao()?.insert(AppointmentEntity.fromDomain(appointment))
         }
+        appContext?.let { ctx ->
+            AppointmentReminderScheduler.scheduleReminder(ctx, appointment)
+        }
     }
 
     fun updateAppointmentStatus(appointmentId: String, status: AppointmentStatus) {
@@ -1149,6 +1154,13 @@ class SpaRepository(context: Context? = null) {
             if (status == AppointmentStatus.COMPLETED) {
                 deductPackageSessionForClient(appt.clientName, appt.clientPhone, appt.serviceName)
             }
+
+            // Hủy nhắc hẹn nếu lịch đã hoàn thành hoặc đã hủy
+            appContext?.let { ctx ->
+                if (status == AppointmentStatus.CANCELLED || status == AppointmentStatus.COMPLETED) {
+                    AppointmentReminderScheduler.cancelReminder(ctx, appointmentId)
+                }
+            }
         }
     }
 
@@ -1158,6 +1170,9 @@ class SpaRepository(context: Context? = null) {
         _appointments.value = current
         repositoryScope.launch {
             database?.appointmentDao()?.deleteById(appointmentId)
+        }
+        appContext?.let { ctx ->
+            AppointmentReminderScheduler.cancelReminder(ctx, appointmentId)
         }
     }
 
@@ -1496,7 +1511,11 @@ class SpaRepository(context: Context? = null) {
                 }
                 launch {
                     database.appointmentDao().getAllAppointments().collect { list ->
-                        _appointments.value = list.map { it.toDomain() }
+                        val domainList = list.map { it.toDomain() }
+                        _appointments.value = domainList
+                        appContext?.let { ctx ->
+                            AppointmentReminderScheduler.scheduleAllUpcoming(ctx, domainList)
+                        }
                     }
                 }
                 launch {

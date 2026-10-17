@@ -38,9 +38,11 @@
 - **Linh hoạt chọn ngân hàng thụ hưởng:** Hỗ trợ chuyển đổi nhanh giữa MBBank, Vietcombank, Techcombank, VPBank, ACB, BIDV, TPBank hoặc tùy biến STK của Spa.
 - **Thao tác 1-chạm:** Sao chép STK, nội dung CK, xác nhận đã thanh toán và tạo hóa đơn mới cho khách tiếp theo.
 
-### 3. 📅 Lịch Hẹn & Điều Phối Phòng Trị Liệu
+### 3. 📅 Lịch Hẹn & Hệ Thống Thông Báo Nhắc Giờ Hẹn
 - **Lưới lịch hẹn đa chế độ:** Xem theo *Dòng thời gian (Timeline)*, *Theo Kỹ thuật viên (Staff)* hoặc *Theo Phòng dịch vụ (Room)* để tránh trùng phòng.
-- **Tự động hóa nhắc hẹn (Automated Reminders):** Tích hợp `WorkManager` chạy ngầm kích hoạt gửi SMS Brandname hoặc Zalo ZNS trước giờ hẹn 2 tiếng và 24 tiếng.
+- **Tự động gửi thông báo đẩy (Push Notification):** Tích hợp `WorkManager` & `NotificationHelper` chạy ngầm, tự động rung và hiển thị banner thông báo trên điện thoại khi lịch hẹn sắp diễn ra (trước 15 phút / 30 phút / 1 tiếng).
+- **Trung tâm thông báo & Kiểm tra trực tiếp:** Bấm biểu tượng 🔔 trên thanh tiêu đề để xem danh sách lịch hẹn cần nhắc hôm nay, tùy chọn thời gian báo trước và nút **"Gửi thử thông báo mẫu ngay"** để kiểm tra trên máy.
+- **Thao tác nhanh 1 chạm:** Gửi thông báo nhắc giờ hẹn tức thì ngay từ popup chi tiết từng cuộc hẹn.
 
 ### 4. 📊 Báo Cáo Doanh Thu & Hiệu Suất KTV
 - **Chỉ số thời gian thực:** Tổng hợp doanh thu hôm nay, tuần này, tháng này và tỷ lệ công suất phòng (Occupancy Rate).

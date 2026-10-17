@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.spacare.manager.R
 import com.spacare.manager.core.designsystem.theme.*
+import com.spacare.manager.core.notification.NotificationHelper
 import com.spacare.manager.domain.model.*
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -620,6 +621,117 @@ fun StoreSettingsScreen(
                                     Icon(Icons.Default.Check, contentDescription = null, tint = Color.White)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("Lưu Thông Tin Cơ Sở", color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+
+                    item {
+                        var reminderLeadMinutes by remember { mutableStateOf(15) }
+                        val hasNotificationPerm = remember { NotificationHelper.hasNotificationPermission(context) }
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.NotificationsActive,
+                                        contentDescription = null,
+                                        tint = SageGreenPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "Cấu Hình Thông Báo Lịch Hẹn",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SageGreenPrimary
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Text(
+                                    text = "Hệ thống sẽ tự động gửi thông báo popup kèm âm báo và rung lên điện thoại/tablet quầy lễ tân khi lịch hẹn sắp đến giờ.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = CharcoalTextSecondary
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (hasNotificationPerm) SageGreenContainer.copy(alpha = 0.5f) else SpaGoldContainer.copy(alpha = 0.5f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (hasNotificationPerm) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = if (hasNotificationPerm) SageGreenPrimary else SpaGoldPrimary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = if (hasNotificationPerm) "Quyền thông báo: Đang hoạt động bình thường" else "Quyền thông báo: Chưa bật trên thiết bị",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (hasNotificationPerm) SageGreenPrimary else SpaGoldPrimary
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Text(
+                                    text = "Thời gian nhắc nhở trước giờ bắt đầu:",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CharcoalTextPrimary
+                                )
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    listOf(15 to "Trước 15p", 30 to "Trước 30p", 60 to "Trước 1h").forEach { (mins, label) ->
+                                        FilterChip(
+                                            selected = reminderLeadMinutes == mins,
+                                            onClick = {
+                                                reminderLeadMinutes = mins
+                                                snackbarMessage = "Đã chọn nhắc hẹn $label"
+                                            },
+                                            label = { Text(label, fontSize = 12.sp) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                OutlinedButton(
+                                    onClick = {
+                                        NotificationHelper.showTestNotification(context)
+                                        snackbarMessage = "🔔 Đã gửi thông báo thử nghiệm lên thanh trạng thái!"
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SageGreenPrimary)
+                                ) {
+                                    Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Gửi thử thông báo mẫu lên điện thoại", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
