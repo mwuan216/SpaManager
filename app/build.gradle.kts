@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.spacare.manager"
+    namespace = "com.mwapplication.spacare.manager"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.spacare.manager"
+        applicationId = "com.mwapplication.spacare.manager"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -25,6 +25,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
