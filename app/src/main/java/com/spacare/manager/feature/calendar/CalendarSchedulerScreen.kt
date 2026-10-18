@@ -34,6 +34,7 @@ import com.spacare.manager.core.notification.AppointmentReminderScheduler
 import com.spacare.manager.core.notification.NotificationHelper
 import com.spacare.manager.domain.model.Appointment
 import com.spacare.manager.domain.model.AppointmentStatus
+import com.spacare.manager.domain.model.TechnicianStaff
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -57,6 +58,7 @@ data class DayItem(
 @Composable
 fun CalendarSchedulerScreen(
     appointments: List<Appointment>,
+    technicians: List<TechnicianStaff> = emptyList(),
     onAppointmentClick: (Appointment) -> Unit = {},
     onAddAppointment: (Appointment) -> Unit = {},
     onUpdateAppointmentStatus: (String, AppointmentStatus) -> Unit = { _, _ -> },
@@ -282,7 +284,9 @@ fun CalendarSchedulerScreen(
 
             // Bộ lọc chi tiết phụ khi chọn Theo KTV hoặc Theo Phòng
             if (selectedViewMode == CalendarViewMode.BY_STAFF) {
-                val staffList = listOf("Thảo My", "Hương Giang", "Lan Phương")
+                val staffList = remember(technicians, appointments) {
+                    (technicians.map { it.name } + appointments.map { it.staffName }).filter { it.isNotBlank() }.distinct()
+                }
                 LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -446,6 +450,7 @@ fun CalendarSchedulerScreen(
     if (showCreateDialog) {
         CreateAppointmentDialog(
             defaultDate = selectedDate,
+            technicians = technicians,
             onDismissRequest = { showCreateDialog = false },
             onSave = { newAppt ->
                 onAddAppointment(newAppt)
@@ -707,6 +712,7 @@ fun AppointmentScheduleCard(
 @Composable
 fun CreateAppointmentDialog(
     defaultDate: String,
+    technicians: List<TechnicianStaff> = emptyList(),
     onDismissRequest: () -> Unit,
     onSave: (Appointment) -> Unit
 ) {
@@ -715,12 +721,12 @@ fun CreateAppointmentDialog(
 
     var clientName by remember { mutableStateOf("") }
     var clientPhone by remember { mutableStateOf("") }
-    var serviceName by remember { mutableStateOf("Liệu Trình Whitening Facial Căng Bóng") }
-    var staffName by remember { mutableStateOf("Thảo My") }
-    var roomName by remember { mutableStateOf("Phòng VIP 02") }
+    var serviceName by remember { mutableStateOf("") }
+    var staffName by remember(technicians) { mutableStateOf(technicians.firstOrNull()?.name ?: "") }
+    var roomName by remember { mutableStateOf("Phòng 01") }
     var startTime by remember { mutableStateOf("10:00") }
-    var duration by remember { mutableStateOf("75") }
-    var priceText by remember { mutableStateOf("650000") }
+    var duration by remember { mutableStateOf("60") }
+    var priceText by remember { mutableStateOf("") }
 
     Dialog(onDismissRequest = onDismissRequest) {
         Card(

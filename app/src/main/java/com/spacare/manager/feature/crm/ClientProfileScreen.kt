@@ -429,7 +429,7 @@ fun ClientProfileScreen(
     if (showAddPackageDialog) {
         var pkgName by remember { mutableStateOf("") }
         var totalSessions by remember { mutableStateOf("10") }
-        var therapist by remember { mutableStateOf("KTV. Thảo My") }
+        var therapist by remember { mutableStateOf(technicians.firstOrNull()?.let { "KTV. ${it.name}" } ?: "") }
 
         AlertDialog(
             onDismissRequest = { showAddPackageDialog = false },
@@ -550,12 +550,12 @@ fun CreateAppointmentForClientDialog(
         mutableStateOf(
             client.treatmentPackages.firstOrNull { it.remainingSessions > 0 }?.name
                 ?: catalogPackages.firstOrNull()?.name
-                ?: "Chăm Sóc Da Trẻ Hóa Chuyên Sâu"
+                ?: ""
         )
     }
     var staffName by remember {
         mutableStateOf(
-            technicians.firstOrNull()?.name ?: "Thảo My"
+            technicians.firstOrNull()?.name ?: ""
         )
     }
     var roomName by remember { mutableStateOf("Phòng VIP 01") }
@@ -567,7 +567,12 @@ fun CreateAppointmentForClientDialog(
     var isPackageSession by remember {
         mutableStateOf(client.treatmentPackages.any { it.name == serviceName && it.remainingSessions > 0 })
     }
-    var customPriceStr by remember { mutableStateOf("650000") }
+    var customPriceStr by remember {
+        mutableStateOf(
+            if (isPackageSession) "0"
+            else (catalogPackages.firstOrNull()?.price?.toString() ?: "0")
+        )
+    }
     var showDatePickerDialog by remember { mutableStateOf(false) }
 
     val roomOptions = listOf("Phòng VIP 01", "Phòng VIP 02", "Phòng Chăm Sóc 03", "Phòng Dưỡng Sinh Sen", "Phòng Laser 01")
@@ -661,52 +666,80 @@ fun CreateAppointmentForClientDialog(
                     }
                 }
 
-                Text("• Dịch vụ đơn lẻ khác:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = CharcoalTextSecondary)
-                catalogPackages.forEach { cat ->
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(
-                                width = if (serviceName == cat.name) 1.5.dp else 1.dp,
-                                color = if (serviceName == cat.name) SageGreenPrimary else WarmBeigeBorder,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .clickable {
-                                serviceName = cat.name
-                                isPackageSession = false
-                                customPriceStr = cat.price.toString()
-                                durationMinutes = cat.durationMinutes
-                            },
-                        color = if (serviceName == cat.name) SageGreenContainer.copy(alpha = 0.5f) else WarmBeigeSurfaceVariant
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                if (catalogPackages.isNotEmpty()) {
+                    Text("• Dịch vụ đơn lẻ khác:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = CharcoalTextSecondary)
+                    catalogPackages.forEach { cat ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(
+                                    width = if (serviceName == cat.name) 1.5.dp else 1.dp,
+                                    color = if (serviceName == cat.name) SageGreenPrimary else WarmBeigeBorder,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable {
+                                    serviceName = cat.name
+                                    isPackageSession = false
+                                    customPriceStr = cat.price.toString()
+                                    durationMinutes = cat.durationMinutes
+                                },
+                            color = if (serviceName == cat.name) SageGreenContainer.copy(alpha = 0.5f) else WarmBeigeSurfaceVariant
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(cat.name, style = MaterialTheme.typography.labelMedium)
-                                Text("${cat.price / 1000}k • ${cat.durationMinutes}p", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
-                            }
-                            if (serviceName == cat.name) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SageGreenPrimary, modifier = Modifier.size(18.dp))
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(cat.name, style = MaterialTheme.typography.labelMedium)
+                                    Text("${cat.price / 1000}k • ${cat.durationMinutes}p", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
+                                }
+                                if (serviceName == cat.name) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SageGreenPrimary, modifier = Modifier.size(18.dp))
+                                }
                             }
                         }
                     }
                 }
 
+                if (client.treatmentPackages.isEmpty() && catalogPackages.isEmpty()) {
+                    OutlinedTextField(
+                        value = serviceName,
+                        onValueChange = { serviceName = it },
+                        label = { Text("Tên dịch vụ thực hiện") },
+                        placeholder = { Text("Nhập tên dịch vụ") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = customPriceStr,
+                        onValueChange = { customPriceStr = it },
+                        label = { Text("Giá dịch vụ (đ)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
                 // Chọn KTV phụ trách
-                Text("Kỹ thuật viên phụ trách:", style = MaterialTheme.typography.labelSmall, color = CharcoalTextSecondary)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val staffList = technicians.map { it.name }.ifEmpty { listOf("Thảo My", "Hương Giang", "Lan Phương") }
-                    items(staffList) { staff ->
-                        FilterChip(
-                            selected = staffName == staff,
-                            onClick = { staffName = staff },
-                            label = { Text(staff, fontSize = 12.sp) }
-                        )
+                if (technicians.isNotEmpty()) {
+                    Text("Kỹ thuật viên phụ trách:", style = MaterialTheme.typography.labelSmall, color = CharcoalTextSecondary)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val staffList = technicians.map { it.name }
+                        items(staffList) { staff ->
+                            FilterChip(
+                                selected = staffName == staff,
+                                onClick = { staffName = staff },
+                                label = { Text(staff, fontSize = 12.sp) }
+                            )
+                        }
                     }
+                } else {
+                    OutlinedTextField(
+                        value = staffName,
+                        onValueChange = { staffName = it },
+                        label = { Text("Kỹ thuật viên phụ trách") },
+                        placeholder = { Text("Nhập tên KTV (nếu có)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
                 // Chọn Phòng
@@ -725,7 +758,7 @@ fun CreateAppointmentForClientDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val calculatedPrice = if (isPackageSession) 0L else (customPriceStr.toLongOrNull() ?: 500000L)
+                    val calculatedPrice = if (isPackageSession) 0L else (customPriceStr.toLongOrNull() ?: 0L)
                     val endHourInt = (startTime.split(":").firstOrNull()?.toIntOrNull() ?: 9) + 1
                     val endMinStr = startTime.split(":").getOrNull(1) ?: "00"
                     val calculatedEndTime = String.format("%02d:%s", endHourInt, endMinStr)

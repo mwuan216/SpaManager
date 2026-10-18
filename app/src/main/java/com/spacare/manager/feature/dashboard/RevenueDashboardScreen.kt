@@ -314,56 +314,65 @@ fun RevenueDashboardScreen(
                                 metrics.revenueDistribution.singleServices +
                                 metrics.revenueDistribution.retailProducts).toFloat()
 
-                        val packagePercent = if (totalDist > 0) (metrics.revenueDistribution.treatmentPackages / totalDist) * 100 else 33.3f
-                        val singlePercent = if (totalDist > 0) (metrics.revenueDistribution.singleServices / totalDist) * 100 else 33.3f
-                        val retailPercent = if (totalDist > 0) (metrics.revenueDistribution.retailProducts / totalDist) * 100 else 33.3f
+                        if (totalDist <= 0) {
+                            Text(
+                                text = "Chưa có dữ liệu phân bổ nguồn thu trong khoảng thời gian này.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = CharcoalTextMuted,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        } else {
+                            val packagePercent = (metrics.revenueDistribution.treatmentPackages / totalDist) * 100
+                            val singlePercent = (metrics.revenueDistribution.singleServices / totalDist) * 100
+                            val retailPercent = (metrics.revenueDistribution.retailProducts / totalDist) * 100
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(12.dp)
-                                .clip(CircleShape)
-                        ) {
-                            Box(
+                            Row(
                                 modifier = Modifier
-                                    .weight(packagePercent.coerceAtLeast(1f))
-                                    .fillMaxHeight()
-                                    .background(SageGreenPrimary)
+                                    .fillMaxWidth()
+                                    .height(12.dp)
+                                    .clip(CircleShape)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(packagePercent.coerceAtLeast(0.1f))
+                                        .fillMaxHeight()
+                                        .background(SageGreenPrimary)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .weight(singlePercent.coerceAtLeast(0.1f))
+                                        .fillMaxHeight()
+                                        .background(SpaGoldPrimary)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .weight(retailPercent.coerceAtLeast(0.1f))
+                                        .fillMaxHeight()
+                                        .background(SageGreenSecondary)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            DistributionLegendRow(
+                                color = SageGreenPrimary,
+                                label = "Gói liệu trình chuyên sâu",
+                                amount = "${currencyFormatter.format(metrics.revenueDistribution.treatmentPackages)} đ",
+                                percent = "${packagePercent.toInt()}%"
                             )
-                            Box(
-                                modifier = Modifier
-                                    .weight(singlePercent.coerceAtLeast(1f))
-                                    .fillMaxHeight()
-                                    .background(SpaGoldPrimary)
+                            DistributionLegendRow(
+                                color = SpaGoldPrimary,
+                                label = "Dịch vụ lẻ / Trải nghiệm",
+                                amount = "${currencyFormatter.format(metrics.revenueDistribution.singleServices)} đ",
+                                percent = "${singlePercent.toInt()}%"
                             )
-                            Box(
-                                modifier = Modifier
-                                    .weight(retailPercent.coerceAtLeast(1f))
-                                    .fillMaxHeight()
-                                    .background(SageGreenSecondary)
+                            DistributionLegendRow(
+                                color = SageGreenSecondary,
+                                label = "Mỹ phẩm chăm sóc tại nhà",
+                                amount = "${currencyFormatter.format(metrics.revenueDistribution.retailProducts)} đ",
+                                percent = "${retailPercent.toInt()}%"
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        DistributionLegendRow(
-                            color = SageGreenPrimary,
-                            label = "Gói liệu trình chuyên sâu",
-                            amount = "${currencyFormatter.format(metrics.revenueDistribution.treatmentPackages)} đ",
-                            percent = "${packagePercent.toInt()}%"
-                        )
-                        DistributionLegendRow(
-                            color = SpaGoldPrimary,
-                            label = "Dịch vụ lẻ / Trải nghiệm",
-                            amount = "${currencyFormatter.format(metrics.revenueDistribution.singleServices)} đ",
-                            percent = "${singlePercent.toInt()}%"
-                        )
-                        DistributionLegendRow(
-                            color = SageGreenSecondary,
-                            label = "Mỹ phẩm chăm sóc tại nhà",
-                            amount = "${currencyFormatter.format(metrics.revenueDistribution.retailProducts)} đ",
-                            percent = "${retailPercent.toInt()}%"
-                        )
                     }
                 }
             }
@@ -544,49 +553,58 @@ fun RevenueDashboardScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        metrics.topServices.forEachIndexed { index, service ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Surface(
-                                    modifier = Modifier.size(26.dp),
-                                    shape = CircleShape,
-                                    color = if (index == 0) SpaGoldContainer else WarmBeigeSurfaceVariant
+                        if (metrics.topServices.isEmpty()) {
+                            Text(
+                                text = "Chưa có dịch vụ nào hoàn thành trong khoảng thời gian này.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = CharcoalTextMuted,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        } else {
+                            metrics.topServices.forEachIndexed { index, service ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
+                                    Surface(
+                                        modifier = Modifier.size(26.dp),
+                                        shape = CircleShape,
+                                        color = if (index == 0) SpaGoldContainer else WarmBeigeSurfaceVariant
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = "${index + 1}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (index == 0) SpaGoldPrimary else CharcoalTextSecondary
+                                            )
+                                        }
+                                    }
+
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "${index + 1}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (index == 0) SpaGoldPrimary else CharcoalTextSecondary
+                                            text = service.serviceName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = CharcoalTextPrimary
+                                        )
+                                        Text(
+                                            text = "${service.bookingCount} lượt phục vụ",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = CharcoalTextMuted
                                         )
                                     }
-                                }
 
-                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = service.serviceName,
+                                        text = "${currencyFormatter.format(service.totalRevenue)} đ",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = CharcoalTextPrimary
-                                    )
-                                    Text(
-                                        text = "${service.bookingCount} lượt phục vụ",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = CharcoalTextMuted
+                                        fontWeight = FontWeight.Bold,
+                                        color = SageGreenPrimary
                                     )
                                 }
-
-                                Text(
-                                    text = "${currencyFormatter.format(service.totalRevenue)} đ",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = SageGreenPrimary
-                                )
                             }
                         }
                     }
@@ -611,63 +629,72 @@ fun RevenueDashboardScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        metrics.topPerformers.forEach { staff ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Box(
+                        if (metrics.topPerformers.isEmpty()) {
+                            Text(
+                                text = "Chưa có dữ liệu hiệu suất kỹ thuật viên.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = CharcoalTextMuted,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        } else {
+                            metrics.topPerformers.forEach { staff ->
+                                Row(
                                     modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(SageGreenContainer),
-                                    contentAlignment = Alignment.Center
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text(
-                                        text = staff.staffName.split(" ").last().take(1),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SageGreenPrimary
-                                    )
-                                }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(SageGreenContainer),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = staff.staffName.split(" ").last().take(1),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = SageGreenPrimary
+                                        )
+                                    }
 
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = staff.staffName,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = CharcoalTextPrimary
-                                    )
-                                    Text(
-                                        text = "${staff.role} • ${staff.totalCustomersServed} khách",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = CharcoalTextMuted
-                                    )
-                                }
-
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text(
-                                        text = "${currencyFormatter.format(staff.revenueGenerated)} đ",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = CharcoalTextPrimary
-                                    )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = Icons.Default.Star,
-                                            contentDescription = null,
-                                            tint = SpaGoldPrimary,
-                                            modifier = Modifier.size(12.dp)
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = staff.staffName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CharcoalTextPrimary
                                         )
                                         Text(
-                                            text = " ${staff.rating}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = SpaGoldPrimary
+                                            text = "${staff.role} • ${staff.totalCustomersServed} khách",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = CharcoalTextMuted
                                         )
+                                    }
+
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            text = "${currencyFormatter.format(staff.revenueGenerated)} đ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = CharcoalTextPrimary
+                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Star,
+                                                contentDescription = null,
+                                                tint = SpaGoldPrimary,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                            Text(
+                                                text = " ${staff.rating}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = SpaGoldPrimary
+                                            )
+                                        }
                                     }
                                 }
                             }

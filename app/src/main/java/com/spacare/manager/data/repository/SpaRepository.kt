@@ -51,7 +51,7 @@ class SpaRepository(context: Context? = null) {
     fun updateStoreProfile(profile: StoreProfile) {
         _storeProfile.value = profile
         // Đồng bộ ngay sang hóa đơn thu ngân hiện tại
-        _currentInvoice.value = _currentInvoice.value.copy(
+        _currentInvoice.value = _currentInvoice.value?.copy(
             selectedBank = profile.selectedBank,
             accountNumber = profile.accountNumber,
             accountHolder = profile.accountHolder,
@@ -98,7 +98,9 @@ class SpaRepository(context: Context? = null) {
         )
     )
 
-    private val _catalogPackages = MutableStateFlow(defaultCatalogPackages)
+    private val _catalogPackages = MutableStateFlow(
+        if (_isRealUsageMode.value) emptyList() else defaultCatalogPackages
+    )
     val catalogPackages: Flow<List<SpaServicePackage>> = _catalogPackages.asStateFlow()
 
     fun addCatalogPackage(pkg: SpaServicePackage) {
@@ -150,7 +152,9 @@ class SpaRepository(context: Context? = null) {
         )
     )
 
-    private val _technicians = MutableStateFlow(defaultTechnicians)
+    private val _technicians = MutableStateFlow(
+        if (_isRealUsageMode.value) emptyList() else defaultTechnicians
+    )
     val technicians: Flow<List<TechnicianStaff>> = _technicians.asStateFlow()
 
     fun addTechnician(tech: TechnicianStaff) {
@@ -1400,7 +1404,7 @@ class SpaRepository(context: Context? = null) {
     }
 
     /**
-     * Bắt đầu sử dụng thực tế: Xóa toàn bộ dữ liệu mẫu (khách hàng, lịch hẹn, giao dịch)
+     * Bắt đầu sử dụng thực tế: Xóa toàn bộ dữ liệu mẫu (khách hàng, lịch hẹn, giao dịch, gói dịch vụ, KTV)
      */
     fun startRealUsage() {
         prefs?.edit()?.putBoolean("key_is_real_usage", true)?.apply()
@@ -1409,38 +1413,21 @@ class SpaRepository(context: Context? = null) {
         _selectedClientId.value = null
         _appointments.value = emptyList()
         _transactions.value = emptyList()
+        _catalogPackages.value = emptyList()
+        _technicians.value = emptyList()
+        _currentInvoice.value = null
         repositoryScope.launch {
             database?.clientDao()?.deleteAll()
             database?.appointmentDao()?.deleteAll()
             database?.transactionDao()?.deleteAll()
-        }
-    }
-
-    /**
-     * Khôi phục dữ liệu mẫu thử nghiệm ban đầu
-     */
-    fun restoreDemoData() {
-        prefs?.edit()?.putBoolean("key_is_real_usage", false)?.apply()
-        _isRealUsageMode.value = false
-        val demoC = demoClients
-        val demoA = buildDemoAppointments()
-        val demoT = buildDemoTransactions()
-        _clients.value = demoC
-        _appointments.value = demoA
-        _transactions.value = demoT
-        repositoryScope.launch {
-            database?.clientDao()?.deleteAll()
-            database?.clientDao()?.insertAll(demoC.map { ClientEntity.fromDomain(it) })
-            database?.appointmentDao()?.deleteAll()
-            database?.appointmentDao()?.insertAll(demoA.map { AppointmentEntity.fromDomain(it) })
-            database?.transactionDao()?.deleteAll()
-            database?.transactionDao()?.insertAll(demoT.map { TransactionEntity.fromDomain(it) })
+            database?.catalogPackageDao()?.deleteAll()
+            database?.technicianDao()?.deleteAll()
         }
     }
 
     // --- THU NGÂN & TẠO MÃ VIETQR (LẤY TÀI KHOẢN TỪ STORE PROFILE) ---
-    private val _currentInvoice = MutableStateFlow(
-        CheckoutInvoice(
+    private val _currentInvoice = MutableStateFlow<CheckoutInvoice?>(
+        if (_isRealUsageMode.value) null else CheckoutInvoice(
             invoiceId = "INV-20261016-01",
             invoiceCode = "SPA8829",
             clientName = "Nguyễn Thu Hà",
@@ -1448,44 +1435,23 @@ class SpaRepository(context: Context? = null) {
             items = listOf(
                 OrderItem(
                     id = "ITEM-01",
-                    name = "Whitening Facial Cao Cấp (Buổi 8/10)",
-                    type = ItemType.PACKAGE,
-                    quantity = 1,
-                    unitPrice = 0L
-                ),
-                OrderItem(
-                    id = "ITEM-02",
-                    name = "Mặt nạ vàng 24K khóa dưỡng ẩm chuyên sâu",
+                    name = "Whitening Facial Cao Cấp",
                     type = ItemType.SERVICE,
-                    quantity = 1,
-                    unitPrice = 350000L
-                ),
-                OrderItem(
-                    id = "ITEM-03",
-                    name = "Serum Tế Bào Gốc EGF Repair 30ml (Mỹ phẩm)",
-                    type = ItemType.PRODUCT,
-                    quantity = 1,
-                    unitPrice = 1250000L
-                ),
-                OrderItem(
-                    id = "ITEM-04",
-                    name = "Kem chống nắng khoáng chất Mineral UV Shield 50ml",
-                    type = ItemType.PRODUCT,
                     quantity = 1,
                     unitPrice = 650000L
                 )
             ),
-            discountAmount = 225000L,
+            discountAmount = 0L,
             tipAmount = 0L,
             paymentStatus = PaymentStatus.WAITING_FOR_PAYMENT,
-            selectedBank = SupportedBanks[0], // Vietcombank
-            accountNumber = "1023456789",
-            accountHolder = "SPA CARE WELLNESS CENTER",
-            defaultMemo = "SPACARE",
-            appointmentId = "APT-101"
+            selectedBank = defaultStoreProfile.selectedBank,
+            accountNumber = defaultStoreProfile.accountNumber,
+            accountHolder = defaultStoreProfile.accountHolder,
+            defaultMemo = defaultStoreProfile.defaultMemo,
+            appointmentId = null
         )
     )
-    val currentInvoice: Flow<CheckoutInvoice> = _currentInvoice.asStateFlow()
+    val currentInvoice: Flow<CheckoutInvoice?> = _currentInvoice.asStateFlow()
 
     init {
         if (database != null) {
@@ -1493,7 +1459,7 @@ class SpaRepository(context: Context? = null) {
                 val clientCount = database.clientDao().getCount()
                 val isReal = _isRealUsageMode.value
                 if (clientCount == 0 && !isReal) {
-                    // Cài đặt lần đầu: Nạp dữ liệu mẫu vào Room Database
+                    // Cài đặt lần đầu: Nạp dữ liệu mẫu vào Room Database để trải nghiệm UI
                     database.clientDao().insertAll(demoClients.map { ClientEntity.fromDomain(it) })
                     database.appointmentDao().insertAll(demoAppointments.map { AppointmentEntity.fromDomain(it) })
                     database.transactionDao().insertAll(demoTransactions.map { TransactionEntity.fromDomain(it) })
@@ -1501,15 +1467,9 @@ class SpaRepository(context: Context? = null) {
                     database.catalogPackageDao().insertAll(defaultCatalogPackages.map { CatalogPackageEntity.fromDomain(it) })
                     database.technicianDao().insertAll(defaultTechnicians.map { TechnicianEntity.fromDomain(it) })
                 } else {
-                    // Đảm bảo cấu hình cửa hàng, gói dịch vụ và kỹ thuật viên luôn có sẵn
+                    // Đảm bảo cấu hình cửa hàng luôn có sẵn
                     if (database.storeProfileDao().getStoreProfileSync() == null) {
                         database.storeProfileDao().insertOrUpdate(StoreProfileEntity.fromDomain(defaultStoreProfile))
-                    }
-                    if (database.catalogPackageDao().getCount() == 0) {
-                        database.catalogPackageDao().insertAll(defaultCatalogPackages.map { CatalogPackageEntity.fromDomain(it) })
-                    }
-                    if (database.technicianDao().getCount() == 0) {
-                        database.technicianDao().insertAll(defaultTechnicians.map { TechnicianEntity.fromDomain(it) })
                     }
                 }
 
@@ -1538,7 +1498,7 @@ class SpaRepository(context: Context? = null) {
                         entity?.let {
                             val profile = it.toDomain()
                             _storeProfile.value = profile
-                            _currentInvoice.value = _currentInvoice.value.copy(
+                            _currentInvoice.value = _currentInvoice.value?.copy(
                                 selectedBank = profile.selectedBank,
                                 accountNumber = profile.accountNumber,
                                 accountHolder = profile.accountHolder,
@@ -1549,24 +1509,20 @@ class SpaRepository(context: Context? = null) {
                 }
                 launch {
                     database.catalogPackageDao().getAllPackages().collect { list ->
-                        if (list.isNotEmpty()) {
-                            _catalogPackages.value = list.map { it.toDomain() }
-                        }
+                        _catalogPackages.value = list.map { it.toDomain() }
                     }
                 }
                 launch {
                     database.technicianDao().getAllTechnicians().collect { list ->
-                        if (list.isNotEmpty()) {
-                            _technicians.value = list.map { it.toDomain() }
-                        }
+                        _technicians.value = list.map { it.toDomain() }
                     }
                 }
             }
         }
     }
 
-    fun updateBank(bank: BankOption, accountNumber: String, accountHolder: String, defaultMemo: String = "SPACARE") {
-        _currentInvoice.value = _currentInvoice.value.copy(
+    fun updateBank(bank: BankOption, accountNumber: String, accountHolder: String, defaultMemo: String = "VANDINH") {
+        _currentInvoice.value = _currentInvoice.value?.copy(
             selectedBank = bank,
             accountNumber = accountNumber,
             accountHolder = accountHolder,
@@ -1582,7 +1538,7 @@ class SpaRepository(context: Context? = null) {
     }
 
     fun markInvoiceAsPaid() {
-        val current = _currentInvoice.value
+        val current = _currentInvoice.value ?: return
         val now = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
         val timeOnly = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
         val dateOnly = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
@@ -1660,15 +1616,25 @@ class SpaRepository(context: Context? = null) {
     }
 
     fun resetInvoice() {
+        _currentInvoice.value = null
+    }
+
+    fun createInvoiceForClient(client: Client, serviceName: String = "Dịch Vụ Spa", amount: Long = 0L) {
         val code = "SPA" + (1000..9999).random()
         val store = _storeProfile.value
         _currentInvoice.value = CheckoutInvoice(
             invoiceId = "INV-${System.currentTimeMillis()}",
             invoiceCode = code,
-            clientName = "Khách Hàng Mới",
-            clientPhone = "0900 000 000",
+            clientName = client.fullName,
+            clientPhone = client.phone,
             items = listOf(
-                OrderItem("SRV-NEW", "Dịch vụ Spa & Trị liệu thư giãn", ItemType.SERVICE, 1, 500000L)
+                OrderItem(
+                    id = "ITEM-${System.currentTimeMillis()}",
+                    name = serviceName,
+                    type = ItemType.SERVICE,
+                    quantity = 1,
+                    unitPrice = amount
+                )
             ),
             discountAmount = 0L,
             paymentStatus = PaymentStatus.WAITING_FOR_PAYMENT,
@@ -1676,7 +1642,8 @@ class SpaRepository(context: Context? = null) {
             accountNumber = store.accountNumber,
             accountHolder = store.accountHolder,
             defaultMemo = store.defaultMemo,
-            appointmentId = null
+            appointmentId = null,
+            staffName = null
         )
     }
 
@@ -1714,7 +1681,9 @@ class SpaRepository(context: Context? = null) {
         val bookingCount = dayAppts.size
         val dayTxs = _transactions.value.filter { it.date == dateStr && it.isPaid }
 
-        val dayRevenue = if (_isRealUsageMode.value) {
+        val isReal = _isRealUsageMode.value
+
+        val dayRevenue = if (isReal) {
             if (dayTxs.isNotEmpty()) dayTxs.sumOf { it.amount }
             else dayAppts.filter { it.status == AppointmentStatus.COMPLETED }.sumOf { it.price }
         } else {
@@ -1723,41 +1692,89 @@ class SpaRepository(context: Context? = null) {
 
         val totalPaidRevenue = _transactions.value.filter { it.isPaid }.sumOf { it.amount }
 
+        val topServices = if (isReal) {
+            val completedAppts = _appointments.value.filter { it.status == AppointmentStatus.COMPLETED && it.serviceName.isNotBlank() }
+            val paidTxs = _transactions.value.filter { it.isPaid && it.serviceName.isNotBlank() }
+            val allServices = completedAppts.map { it.serviceName to it.price } + paidTxs.map { it.serviceName to it.amount }
+            val groups = allServices.groupBy { it.first }
+            val totalRev = allServices.sumOf { it.second }.coerceAtLeast(1L)
+            groups.entries.map { entry ->
+                val name = entry.key
+                val items = entry.value
+                val count = items.size
+                val rev = items.sumOf { p -> p.second }
+                val pct = (rev.toFloat() / totalRev) * 100f
+                TopServiceMetric(name, count, rev, pct)
+            }.sortedByDescending { it.totalRevenue }.take(5)
+        } else {
+            listOf(
+                TopServiceMetric("Liệu Trình Căng Bóng Whitening Facial", 42, 63000000L, 38f),
+                TopServiceMetric("Gội Đầu Dưỡng Sinh Thảo Dược", 68, 27200000L, 22f),
+                TopServiceMetric("Triệt Lông Công Nghệ Diode Laser", 28, 42000000L, 25f),
+                TopServiceMetric("Massage Body Đá Nóng Himalaya", 18, 15300000L, 15f)
+            )
+        }
+
+        val revenueDistribution = if (isReal) {
+            var pkgs = 0L
+            var singles = 0L
+            var products = 0L
+            _transactions.value.filter { it.isPaid }.forEach { tx ->
+                val name = tx.serviceName.lowercase()
+                when {
+                    name.contains("gói") || name.contains("liệu trình") || name.contains("facial") || name.contains("hifu") || name.contains("laser") -> pkgs += tx.amount
+                    name.contains("mỹ phẩm") || name.contains("kem") || name.contains("serum") || name.contains("sản phẩm") -> products += tx.amount
+                    else -> singles += tx.amount
+                }
+            }
+            RevenueDistribution(pkgs, singles, products)
+        } else {
+            RevenueDistribution(
+                treatmentPackages = 265000000L,
+                singleServices = 120800000L,
+                retailProducts = 80000000L
+            )
+        }
+
+        val topPerformers = if (isReal) {
+            val completedAppts = _appointments.value.filter { it.status == AppointmentStatus.COMPLETED && it.staffName.isNotBlank() }
+            val paidTxs = _transactions.value.filter { it.isPaid && it.technicianName.isNotBlank() && it.technicianName != "Quầy Thu Ngân" }
+            val staffPairs = completedAppts.map { it.staffName to it.price } + paidTxs.map { it.technicianName to it.amount }
+            staffPairs.groupBy { it.first }
+                .entries
+                .mapIndexed { idx, entry ->
+                    val staffName = entry.key
+                    val items = entry.value
+                    val rev = items.sumOf { p -> p.second }
+                    StaffPerformance(
+                        staffId = "ST-0${idx + 1}",
+                        staffName = staffName,
+                        role = "Kỹ Thuật Viên",
+                        totalCustomersServed = items.size,
+                        revenueGenerated = rev,
+                        rating = 5.0f
+                    )
+                }
+                .sortedByDescending { it.revenueGenerated }
+                .take(5)
+        } else {
+            listOf(
+                StaffPerformance("ST-01", "Thảo My", "Chuyên Viên Trị Liệu", 46, 32500000L, 4.95f),
+                StaffPerformance("ST-02", "Hương Giang", "Kỹ Thuật Viên Dưỡng Sinh", 52, 24800000L, 4.90f),
+                StaffPerformance("ST-03", "Lan Phương", "Chuyên Viên Laser & Phục Hồi", 38, 28100000L, 4.88f)
+            )
+        }
+
         return DashboardMetrics(
             todayRevenue = dayRevenue,
             todayGrowthPercent = if (dayRevenue > 0) 14.8f else 0f,
-            weekRevenue = if (_isRealUsageMode.value) totalPaidRevenue else 112400000L,
-            monthRevenue = if (_isRealUsageMode.value) totalPaidRevenue else 465800000L,
+            weekRevenue = if (isReal) totalPaidRevenue else 112400000L,
+            monthRevenue = if (isReal) totalPaidRevenue else 465800000L,
             totalBookingsToday = bookingCount,
             roomOccupancyRate = if (bookingCount > 0) (bookingCount * 17.5f).coerceAtMost(100f) else 0f,
-            topServices = if (_isRealUsageMode.value && dayAppts.isEmpty() && dayTxs.isEmpty()) {
-                emptyList()
-            } else {
-                listOf(
-                    TopServiceMetric("Liệu Trình Căng Bóng Whitening Facial", 42, 63000000L, 38f),
-                    TopServiceMetric("Gội Đầu Dưỡng Sinh Thảo Dược", 68, 27200000L, 22f),
-                    TopServiceMetric("Triệt Lông Công Nghệ Diode Laser", 28, 42000000L, 25f),
-                    TopServiceMetric("Massage Body Đá Nóng Himalaya", 18, 15300000L, 15f)
-                )
-            },
-            revenueDistribution = if (_isRealUsageMode.value && totalPaidRevenue == 0L && dayRevenue == 0L) {
-                RevenueDistribution(0L, 0L, 0L)
-            } else {
-                RevenueDistribution(
-                    treatmentPackages = 265000000L,
-                    singleServices = 120800000L,
-                    retailProducts = 80000000L
-                )
-            },
-            topPerformers = if (_isRealUsageMode.value && dayAppts.isEmpty() && dayTxs.isEmpty()) {
-                emptyList()
-            } else {
-                listOf(
-                    StaffPerformance("ST-01", "Thảo My", "Chuyên Viên Trị Liệu", 46, 32500000L, 4.95f),
-                    StaffPerformance("ST-02", "Hương Giang", "Kỹ Thuật Viên Dưỡng Sinh", 52, 24800000L, 4.90f),
-                    StaffPerformance("ST-03", "Lan Phương", "Chuyên Viên Laser & Phục Hồi", 38, 28100000L, 4.88f)
-                )
-            }
+            topServices = topServices,
+            revenueDistribution = revenueDistribution,
+            topPerformers = topPerformers
         )
     }
 

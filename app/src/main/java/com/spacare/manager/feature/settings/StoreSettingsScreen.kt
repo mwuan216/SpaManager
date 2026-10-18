@@ -61,7 +61,6 @@ fun StoreSettingsScreen(
     appointmentCount: Int = 0,
     transactionCount: Int = 0,
     onStartRealUsage: () -> Unit = {},
-    onRestoreDemoData: () -> Unit = {},
     onExportBackup: () -> Unit = {},
     onImportBackup: (String) -> Unit = {},
     onUpdateStoreProfile: (StoreProfile) -> Unit,
@@ -104,7 +103,6 @@ fun StoreSettingsScreen(
     var inputLicenseKey by remember { mutableStateOf("") }
     var licenseError by remember { mutableStateOf<String?>(null) }
     var showConfirmRealUsageDialog by remember { mutableStateOf(false) }
-    var showConfirmRestoreDemoDialog by remember { mutableStateOf(false) }
     var showConfirmImportDialog by remember { mutableStateOf(false) }
     var pendingImportJson by remember { mutableStateOf<String?>(null) }
 
@@ -991,31 +989,43 @@ fun StoreSettingsScreen(
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = "Bắt Đầu Sử Dụng (Xóa Dữ Liệu Mẫu)",
+                                            text = "Bắt Đầu Sử Dụng (Xóa Sạch Dữ Liệu Mẫu)",
                                             color = Color.White,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
                                 } else {
-                                    OutlinedButton(
-                                        onClick = { showConfirmRestoreDemoDialog = true },
+                                    Surface(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SpaGoldPrimary)
+                                        color = SuccessGreenContainer.copy(alpha = 0.5f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.4f))
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.RestartAlt,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = SpaGoldPrimary
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "Khôi phục dữ liệu mẫu thử nghiệm",
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 12.sp,
-                                            color = SpaGoldPrimary
-                                        )
+                                        Row(
+                                            modifier = Modifier.padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = SuccessGreen,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                            Column {
+                                                Text(
+                                                    text = "Đang Hoạt Động Với Dữ Liệu Thực Tế",
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = CharcoalTextPrimary
+                                                )
+                                                Text(
+                                                    text = "Toàn bộ dữ liệu khách hàng, lịch hẹn và gói dịch vụ được lưu trữ an toàn trong máy.",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = CharcoalTextSecondary
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1456,7 +1466,7 @@ fun StoreSettingsScreen(
             },
             text = {
                 Text(
-                    text = "Hành động này sẽ xóa toàn bộ dữ liệu mẫu (khách hàng, lịch hẹn, lịch sử hóa đơn demo) để bạn bắt đầu nhập và quản lý khách hàng thật cho cơ sở Spa của mình.\n\nBạn có chắc chắn muốn bắt đầu?",
+                    text = "Hành động này sẽ xóa vĩnh viễn toàn bộ dữ liệu mẫu (khách hàng, lịch hẹn, gói liệu trình, kỹ thuật viên, lịch sử hóa đơn demo) để bạn bắt đầu sử dụng và quản lý cơ sở Spa của mình với dữ liệu thật 100%.\n\nBạn có chắc chắn muốn bắt đầu?",
                     style = MaterialTheme.typography.bodyMedium,
                     color = CharcoalTextSecondary,
                     lineHeight = 20.sp
@@ -1477,45 +1487,6 @@ fun StoreSettingsScreen(
             dismissButton = {
                 OutlinedButton(onClick = { showConfirmRealUsageDialog = false }) {
                     Text("Để sau")
-                }
-            },
-            containerColor = WarmBeigeSurface
-        )
-    }
-
-    // Dialog xác nhận khôi phục lại dữ liệu mẫu
-    if (showConfirmRestoreDemoDialog) {
-        AlertDialog(
-            onDismissRequest = { showConfirmRestoreDemoDialog = false },
-            title = {
-                Text(
-                    text = "Khôi Phục Dữ Liệu Mẫu?",
-                    fontWeight = FontWeight.Bold,
-                    color = CharcoalTextPrimary
-                )
-            },
-            text = {
-                Text(
-                    text = "Nạp lại danh sách khách hàng, lịch hẹn và doanh thu mẫu để tiếp tục thử nghiệm giao diện?",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = CharcoalTextSecondary
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showConfirmRestoreDemoDialog = false
-                        onRestoreDemoData()
-                        Toast.makeText(context, "Đã nạp lại dữ liệu mẫu thử nghiệm thành công!", Toast.LENGTH_SHORT).show()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SpaGoldPrimary, contentColor = Color.White)
-                ) {
-                    Text("Khôi phục", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showConfirmRestoreDemoDialog = false }) {
-                    Text("Hủy")
                 }
             },
             containerColor = WarmBeigeSurface

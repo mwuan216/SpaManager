@@ -141,6 +141,7 @@ fun SpaMainApp(
             SpaNavDestination.CALENDAR -> {
                 CalendarSchedulerScreen(
                     appointments = appointments,
+                    technicians = technicians,
                     onAppointmentClick = { appt ->
                         val matchedClient = clients.find { it.fullName == appt.clientName || it.phone == appt.clientPhone }
                         if (matchedClient != null) {
@@ -178,6 +179,12 @@ fun SpaMainApp(
                             currentDestination = SpaNavDestination.CALENDAR
                         },
                         onCheckoutClick = {
+                            val clientAppt = unpaidAppointments.find { it.clientPhone == selectedClient.phone || it.clientName.equals(selectedClient.fullName, ignoreCase = true) }
+                            if (clientAppt != null) {
+                                repository.createInvoiceFromAppointment(clientAppt)
+                            } else {
+                                repository.createInvoiceForClient(selectedClient)
+                            }
                             checkoutFromAppointment = true
                             previousDestination = SpaNavDestination.CRM
                             currentDestination = SpaNavDestination.CHECKOUT
@@ -230,32 +237,30 @@ fun SpaMainApp(
                 }
             }
             SpaNavDestination.CHECKOUT -> {
-                currentInvoice?.let { invoice ->
-                    CheckoutQrScreen(
-                        invoice = invoice,
-                        storeProfile = storeProfile,
-                        isStoreDefaultMode = !checkoutFromAppointment,
-                        unpaidAppointments = unpaidAppointments,
-                        onSelectAppointmentInvoice = { appt ->
-                            repository.createInvoiceFromAppointment(appt)
-                            checkoutFromAppointment = true
-                        },
-                        onConfirmPayment = {
-                            repository.markInvoiceAsPaid()
-                        },
-                        onConfirmStorePayment = { amount, memo ->
-                            repository.recordStoreQrPayment(amount, memo)
-                        },
-                        onResetInvoice = {
-                            repository.resetInvoice()
-                        },
-                        onUpdateBank = { bank, accNo, holder, memo ->
-                            repository.updateBank(bank, accNo, holder, memo)
-                        },
-                        onBackClick = { currentDestination = previousDestination },
-                        modifier = screenModifier
-                    )
-                }
+                CheckoutQrScreen(
+                    invoice = currentInvoice,
+                    storeProfile = storeProfile,
+                    isStoreDefaultMode = !checkoutFromAppointment && unpaidAppointments.isEmpty(),
+                    unpaidAppointments = unpaidAppointments,
+                    onSelectAppointmentInvoice = { appt ->
+                        repository.createInvoiceFromAppointment(appt)
+                        checkoutFromAppointment = true
+                    },
+                    onConfirmPayment = {
+                        repository.markInvoiceAsPaid()
+                    },
+                    onConfirmStorePayment = { amount, memo ->
+                        repository.recordStoreQrPayment(amount, memo)
+                    },
+                    onResetInvoice = {
+                        repository.resetInvoice()
+                    },
+                    onUpdateBank = { bank, accNo, holder, memo ->
+                        repository.updateBank(bank, accNo, holder, memo)
+                    },
+                    onBackClick = { currentDestination = previousDestination },
+                    modifier = screenModifier
+                )
             }
             SpaNavDestination.DASHBOARD -> {
                 val dynamicMetrics = remember(selectedDashboardDate, appointments) {
@@ -282,9 +287,6 @@ fun SpaMainApp(
                     transactionCount = transactions.size,
                     onStartRealUsage = {
                         repository.startRealUsage()
-                    },
-                    onRestoreDemoData = {
-                        repository.restoreDemoData()
                     },
                     onExportBackup = {
                         coroutineScope.launch {

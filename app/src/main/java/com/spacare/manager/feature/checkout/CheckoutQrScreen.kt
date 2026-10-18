@@ -46,7 +46,7 @@ enum class CheckoutTab(val title: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CheckoutQrScreen(
-    invoice: CheckoutInvoice,
+    invoice: CheckoutInvoice?,
     storeProfile: StoreProfile = StoreProfile(),
     isStoreDefaultMode: Boolean = true,
     unpaidAppointments: List<Appointment> = emptyList(),
@@ -66,6 +66,13 @@ fun CheckoutQrScreen(
         mutableStateOf(if (isStoreDefaultMode) CheckoutTab.STORE_QR else CheckoutTab.INVOICE_BILL)
     }
 
+    // Tự động nạp lịch hẹn đầu tiên nếu tab Hóa Đơn đang mở mà chưa có hóa đơn nào được chọn
+    LaunchedEffect(unpaidAppointments, invoice, activeTab) {
+        if (activeTab == CheckoutTab.INVOICE_BILL && invoice == null && unpaidAppointments.isNotEmpty()) {
+            onSelectAppointmentInvoice(unpaidAppointments.first())
+        }
+    }
+
     // State cho QR Cửa Hàng
     var storeCustomAmount by remember { mutableStateOf("") }
     var storePaymentReceived by remember { mutableStateOf(false) }
@@ -77,7 +84,7 @@ fun CheckoutQrScreen(
     var bankSearchQuery by remember { mutableStateOf("") }
 
     val parsedStoreAmount = storeCustomAmount.replace(".", "").replace(",", "").toLongOrNull() ?: 0L
-    val storeMemo = storeProfile.defaultMemo.ifBlank { "SPACARE" }
+    val storeMemo = storeProfile.defaultMemo.ifBlank { "VANDINH" }
 
     val storeVietQrUrl = remember(storeProfile, parsedStoreAmount, storeMemo) {
         val bankId = storeProfile.selectedBank.bin
@@ -113,7 +120,11 @@ fun CheckoutQrScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = if (activeTab == CheckoutTab.STORE_QR) storeProfile.name else "Hóa đơn #${invoice.invoiceCode} • ${invoice.clientName}",
+                                text = if (activeTab == CheckoutTab.STORE_QR) {
+                                    storeProfile.name
+                                } else {
+                                    invoice?.let { "Hóa đơn #${it.invoiceCode} • ${it.clientName}" } ?: "Hóa Đơn Dịch Vụ"
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = CharcoalTextSecondary
                             )
@@ -491,8 +502,8 @@ fun CheckoutQrScreen(
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
                                         items(unpaidAppointments, key = { it.id }) { appt ->
-                                            val isSelectedAppt = invoice.appointmentId == appt.id ||
-                                                (invoice.clientName == appt.clientName && invoice.items.any { it.name == appt.serviceName })
+                                            val isSelectedAppt = invoice?.appointmentId == appt.id ||
+                                                (invoice != null && invoice.clientName == appt.clientName && invoice.items.any { it.name == appt.serviceName })
                                             Surface(
                                                 modifier = Modifier
                                                     .width(230.dp)
@@ -588,7 +599,8 @@ fun CheckoutQrScreen(
                         }
                     }
 
-                    item {
+                    if (invoice != null) {
+                        item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = MaterialTheme.shapes.medium,
@@ -829,10 +841,83 @@ fun CheckoutQrScreen(
                             }
                         }
                     }
+                } else {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                if (unpaidAppointments.isNotEmpty()) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                                        contentDescription = null,
+                                        tint = SageGreenPrimary,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "Chọn lịch hẹn cần thanh toán",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CharcoalTextPrimary
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Bấm vào một trong các thẻ lịch hẹn ở phía trên để nạp chi tiết hóa đơn và tạo mã VietQR thanh toán tự động.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = CharcoalTextSecondary,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = SuccessGreen,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "Không có hóa đơn chờ thanh toán",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CharcoalTextPrimary
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Tất cả lịch hẹn dịch vụ hôm nay đã được thanh toán hoặc chưa có lịch hẹn mới. Bạn có thể chuyển sang tab 'QR Cửa Hàng' để nhận tiền thanh toán trực tiếp tại quầy.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = CharcoalTextSecondary,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
+                                        onClick = { activeTab = CheckoutTab.STORE_QR },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = SageGreenPrimary,
+                                            contentColor = Color.White
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Chuyển sang QR Cửa Hàng", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+}
 
     // Modal chọn ngân hàng từ danh sách 44 ngân hàng VietQR
     if (showBankPickerDialog) {
