@@ -430,29 +430,126 @@ fun ClientProfileScreen(
         var pkgName by remember { mutableStateOf("") }
         var totalSessions by remember { mutableStateOf("10") }
         var therapist by remember { mutableStateOf(technicians.firstOrNull()?.let { "KTV. ${it.name}" } ?: "") }
+        val sessionPresets = listOf("5", "8", "10", "12", "15", "20")
 
         AlertDialog(
             onDismissRequest = { showAddPackageDialog = false },
-            title = { Text("Thêm Gói Liệu Trình Mới") },
+            title = {
+                Text(
+                    "Thêm Gói Liệu Trình Mới",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = SageGreenPrimary
+                )
+            },
+            containerColor = WarmBeigeSurface,
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Chọn nhanh từ danh mục gói dịch vụ đã setup
+                    if (catalogPackages.isNotEmpty()) {
+                        Text(
+                            "Chọn nhanh từ danh mục đã setup:",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = CharcoalTextSecondary
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(catalogPackages) { cat ->
+                                val isSelected = pkgName == cat.name
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        pkgName = cat.name
+                                        totalSessions = cat.totalSessions.toString()
+                                    },
+                                    label = {
+                                        Column {
+                                            Text(cat.name, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp)
+                                            Text("${cat.totalSessions} buổi • ${cat.price / 1000}k", fontSize = 10.sp, color = if (isSelected) SageGreenPrimary else CharcoalTextMuted)
+                                        }
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = SageGreenContainer,
+                                        selectedLabelColor = SageGreenPrimary
+                                    )
+                                )
+                            }
+                        }
+                    }
+
                     OutlinedTextField(
                         value = pkgName,
                         onValueChange = { pkgName = it },
-                        label = { Text("Tên gói liệu trình") },
+                        label = { Text("Tên gói liệu trình *") },
                         placeholder = { Text("Vd: Căng bóng da Whitening Facial") },
+                        leadingIcon = { Icon(Icons.Default.Spa, contentDescription = null, tint = SageGreenPrimary) },
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // Chọn nhanh số buổi
+                    Text(
+                        "Chọn nhanh số buổi:",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = CharcoalTextSecondary
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(sessionPresets) { s ->
+                            val isSelected = totalSessions == s
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { totalSessions = s },
+                                label = { Text("$s buổi", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = SageGreenContainer,
+                                    selectedLabelColor = SageGreenPrimary
+                                )
+                            )
+                        }
+                    }
+
                     OutlinedTextField(
                         value = totalSessions,
                         onValueChange = { totalSessions = it },
-                        label = { Text("Tổng số buổi") },
+                        label = { Text("Tổng số buổi *") },
+                        leadingIcon = { Icon(Icons.Default.Repeat, contentDescription = null, tint = SageGreenPrimary) },
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // Chọn nhanh KTV phụ trách
+                    if (technicians.isNotEmpty()) {
+                        Text(
+                            "Chọn nhanh KTV phụ trách:",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = CharcoalTextSecondary
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(technicians) { tech ->
+                                val staffTitle = "KTV. ${tech.name}"
+                                val isSelected = therapist == staffTitle || therapist == tech.name
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { therapist = staffTitle },
+                                    label = { Text(tech.name, fontSize = 12.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = SageGreenContainer,
+                                        selectedLabelColor = SageGreenPrimary
+                                    )
+                                )
+                            }
+                        }
+                    }
+
                     OutlinedTextField(
                         value = therapist,
                         onValueChange = { therapist = it },
                         label = { Text("KTV phụ trách") },
+                        placeholder = { Text("Nhập hoặc chọn KTV ở trên") },
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = SageGreenPrimary) },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -486,7 +583,8 @@ fun ClientProfileScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = SageGreenPrimary,
                         contentColor = Color.White
-                    )
+                    ),
+                    enabled = pkgName.isNotBlank()
                 ) {
                     Text("Lưu gói", color = Color.White, fontWeight = FontWeight.Bold)
                 }
@@ -646,6 +744,10 @@ fun CreateAppointmentForClientDialog(
                                 .clickable {
                                     serviceName = pkg.name
                                     isPackageSession = true
+                                    customPriceStr = "0"
+                                    if (pkg.assignedTherapist.isNotBlank()) {
+                                        staffName = pkg.assignedTherapist.replace("KTV.", "").trim()
+                                    }
                                 },
                             color = if (serviceName == pkg.name) SageGreenContainer.copy(alpha = 0.5f) else WarmBeigeSurfaceVariant
                         ) {

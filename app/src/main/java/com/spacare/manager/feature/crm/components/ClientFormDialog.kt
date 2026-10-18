@@ -1,6 +1,8 @@
 package com.spacare.manager.feature.crm.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -12,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.spacare.manager.core.designsystem.theme.*
 import com.spacare.manager.domain.model.Client
@@ -132,6 +135,33 @@ fun ClientFormDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Phân loại da
+                val skinTypes = listOf("Da hỗn hợp", "Da dầu mụn", "Da khô ráp", "Da nhạy cảm", "Da lão hóa / nám")
+                Text(
+                    text = "Gợi ý phân loại da nhanh:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = CharcoalTextSecondary,
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(skinTypes) { st ->
+                        val isSelected = skinType.equals(st, ignoreCase = true)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { skinType = st },
+                            label = { Text(st, fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = SageGreenPrimary.copy(alpha = 0.2f),
+                                selectedLabelColor = SageGreenPrimary
+                            )
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+
                 OutlinedTextField(
                     value = skinType,
                     onValueChange = { skinType = it },

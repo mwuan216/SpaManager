@@ -142,8 +142,10 @@ fun SpaMainApp(
                 CalendarSchedulerScreen(
                     appointments = appointments,
                     technicians = technicians,
+                    clients = clients,
+                    catalogPackages = catalogPackages,
                     onAppointmentClick = { appt ->
-                        val matchedClient = clients.find { it.fullName == appt.clientName || it.phone == appt.clientPhone }
+                        val matchedClient = clients.find { it.fullName.equals(appt.clientName, ignoreCase = true) || it.phone == appt.clientPhone }
                         if (matchedClient != null) {
                             repository.selectClient(matchedClient.id)
                             currentDestination = SpaNavDestination.CRM
@@ -151,6 +153,9 @@ fun SpaMainApp(
                     },
                     onAddAppointment = { newAppt ->
                         repository.addAppointment(newAppt)
+                    },
+                    onAddNewClient = { newClient ->
+                        repository.addClient(newClient)
                     },
                     onUpdateAppointmentStatus = { id, status ->
                         repository.updateAppointmentStatus(id, status)
