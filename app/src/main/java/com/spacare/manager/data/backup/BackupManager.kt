@@ -89,6 +89,7 @@ object BackupManager {
                         put("status", a.status.name)
                         put("price", a.price)
                         put("reminderSent", a.reminderSent)
+                        put("isSessionDeducted", a.isSessionDeducted)
                     }
                     apptsArray.put(obj)
                 }
@@ -248,7 +249,8 @@ object BackupManager {
                             date = obj.optString("date", ""),
                             status = obj.optString("status", "CONFIRMED"),
                             price = obj.optLong("price", 0L),
-                            reminderSent = obj.optBoolean("reminderSent", true)
+                            reminderSent = obj.optBoolean("reminderSent", true),
+                            isSessionDeducted = obj.optBoolean("isSessionDeducted", false)
                         )
                     )
                 }

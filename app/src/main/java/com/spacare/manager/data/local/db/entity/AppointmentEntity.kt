@@ -20,7 +20,8 @@ data class AppointmentEntity(
     val date: String,
     val status: String,
     val price: Long,
-    val reminderSent: Boolean
+    val reminderSent: Boolean,
+    val isSessionDeducted: Boolean = false
 ) {
     fun toDomain(): Appointment {
         val apptStatus = try {
@@ -41,7 +42,8 @@ data class AppointmentEntity(
             date = date,
             status = apptStatus,
             price = price,
-            reminderSent = reminderSent
+            reminderSent = reminderSent,
+            isSessionDeducted = isSessionDeducted
         )
     }
 
@@ -60,7 +62,8 @@ data class AppointmentEntity(
                 date = appointment.date,
                 status = appointment.status.name,
                 price = appointment.price,
-                reminderSent = appointment.reminderSent
+                reminderSent = appointment.reminderSent,
+                isSessionDeducted = appointment.isSessionDeducted
             )
         }
     }

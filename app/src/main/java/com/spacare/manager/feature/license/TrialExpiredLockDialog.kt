@@ -78,7 +78,7 @@ fun TrialExpiredLockDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Hết Hạn Dùng Thử 3 Ngày",
+                    text = "Hết Hạn Dùng Thử 15 Ngày",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = CharcoalTextPrimary,
@@ -88,7 +88,7 @@ fun TrialExpiredLockDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Thời gian trải nghiệm miễn phí 3 ngày của Văn Định Skinlab đã kết thúc. Vui lòng nhập Key kích hoạt bản quyền để tiếp tục sử dụng phần mềm quản lý Spa.",
+                    text = "Thời gian trải nghiệm miễn phí 15 ngày của Văn Định Skinlab đã kết thúc. Vui lòng nhập Key kích hoạt bản quyền để tiếp tục sử dụng phần mềm quản lý Spa.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = CharcoalTextSecondary,
                     textAlign = TextAlign.Center,

@@ -21,6 +21,7 @@ data class Appointment(
     val date: String,      // format "16/10/2026"
     val status: AppointmentStatus,
     val price: Long,
-    val reminderSent: Boolean = true
+    val reminderSent: Boolean = true,
+    val isSessionDeducted: Boolean = false
 )
 

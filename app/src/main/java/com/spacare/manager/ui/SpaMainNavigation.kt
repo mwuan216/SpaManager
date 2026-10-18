@@ -44,6 +44,7 @@ fun SpaMainApp(
     repository: SpaRepository? = null
 ) {
     var currentDestination by remember { mutableStateOf(SpaNavDestination.CALENDAR) }
+    var previousDestination by remember { mutableStateOf(SpaNavDestination.CALENDAR) }
     var checkoutFromAppointment by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -94,6 +95,9 @@ fun SpaMainApp(
                     NavigationBarItem(
                         selected = isSelected,
                         onClick = {
+                            if (destination != currentDestination) {
+                                previousDestination = currentDestination
+                            }
                             if (destination == SpaNavDestination.CRM) {
                                 // Luôn mở màn danh sách khách hàng mới khi ấn vào tab Khách Hàng
                                 repository.selectClient(null)
@@ -156,6 +160,7 @@ fun SpaMainApp(
                     onGoToCheckout = { appt ->
                         repository.createInvoiceFromAppointment(appt)
                         checkoutFromAppointment = true
+                        previousDestination = SpaNavDestination.CALENDAR
                         currentDestination = SpaNavDestination.CHECKOUT
                     },
                     modifier = screenModifier
@@ -169,10 +174,12 @@ fun SpaMainApp(
                             repository.selectClient(null)
                         },
                         onBookAppointmentClick = {
+                            previousDestination = SpaNavDestination.CRM
                             currentDestination = SpaNavDestination.CALENDAR
                         },
                         onCheckoutClick = {
                             checkoutFromAppointment = true
+                            previousDestination = SpaNavDestination.CRM
                             currentDestination = SpaNavDestination.CHECKOUT
                         },
                         onUpdateClient = { updatedClient ->
@@ -236,13 +243,16 @@ fun SpaMainApp(
                         onConfirmPayment = {
                             repository.markInvoiceAsPaid()
                         },
+                        onConfirmStorePayment = { amount, memo ->
+                            repository.recordStoreQrPayment(amount, memo)
+                        },
                         onResetInvoice = {
                             repository.resetInvoice()
                         },
                         onUpdateBank = { bank, accNo, holder, memo ->
                             repository.updateBank(bank, accNo, holder, memo)
                         },
-                        onBackClick = { currentDestination = SpaNavDestination.CRM },
+                        onBackClick = { currentDestination = previousDestination },
                         modifier = screenModifier
                     )
                 }
@@ -328,7 +338,7 @@ fun SpaMainApp(
         }
     }
 
-    // Khóa màn hình bắt buộc nhập key kích hoạt bản quyền khi đã hết hạn dùng thử 3 ngày
+    // Khóa màn hình bắt buộc nhập key kích hoạt bản quyền khi đã hết hạn dùng thử 15 ngày
     if (licenseStatus.isExpired) {
         TrialExpiredLockDialog(
             licenseManager = licenseManager,

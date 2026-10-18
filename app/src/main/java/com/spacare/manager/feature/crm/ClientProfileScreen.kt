@@ -461,14 +461,23 @@ fun ClientProfileScreen(
                 Button(
                     onClick = {
                         val sessions = totalSessions.toIntOrNull() ?: 10
+                        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                        val now = Date()
+                        val startDateStr = sdf.format(now)
+                        val cal = java.util.Calendar.getInstance().apply {
+                            time = now
+                            add(java.util.Calendar.MONTH, 6)
+                        }
+                        val expiryDateStr = sdf.format(cal.time)
+
                         val newPackage = TreatmentPackage(
                             id = "PKG-" + (1000..9999).random(),
                             name = pkgName.ifBlank { "Liệu Trình Chuyên Sâu Spa" },
                             totalSessions = sessions,
                             usedSessions = 0,
                             remainingSessions = sessions,
-                            startDate = "16/10/2026",
-                            expiryDate = "16/04/2027",
+                            startDate = startDateStr,
+                            expiryDate = expiryDateStr,
                             assignedTherapist = therapist
                         )
                         onAddTreatmentPackage(newPackage)

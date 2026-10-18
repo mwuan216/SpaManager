@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.ShortText
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -786,7 +787,7 @@ fun StoreSettingsScreen(
                                             text = when {
                                                 licenseStatus.isActivated -> "ĐÃ KÍCH HOẠT PRO"
                                                 licenseStatus.isExpired -> "HẾT HẠN DÙNG THỬ"
-                                                else -> "DÙNG THỬ 3 NGÀY"
+                                                else -> "DÙNG THỬ 15 NGÀY"
                                             },
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                             style = MaterialTheme.typography.labelSmall,
@@ -1097,7 +1098,7 @@ fun StoreSettingsScreen(
                                     ) {
                                         DataStatItem(count = clientCount, label = "Khách Hàng", icon = Icons.Default.People)
                                         DataStatItem(count = appointmentCount, label = "Lịch Hẹn", icon = Icons.Default.CalendarMonth)
-                                        DataStatItem(count = transactionCount, label = "Giao Dịch", icon = Icons.Default.ReceiptLong)
+                                        DataStatItem(count = transactionCount, label = "Giao Dịch", icon = Icons.AutoMirrored.Filled.ReceiptLong)
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Row(

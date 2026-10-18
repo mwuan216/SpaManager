@@ -52,6 +52,7 @@ fun CheckoutQrScreen(
     unpaidAppointments: List<Appointment> = emptyList(),
     onSelectAppointmentInvoice: (Appointment) -> Unit = {},
     onConfirmPayment: () -> Unit,
+    onConfirmStorePayment: (amount: Long, memo: String) -> Unit = { _, _ -> },
     onResetInvoice: () -> Unit,
     onUpdateBank: (bank: BankOption, accountNo: String, accountHolder: String, defaultMemo: String) -> Unit = { _, _, _, _ -> },
     onBackClick: () -> Unit = {},
@@ -383,7 +384,9 @@ fun CheckoutQrScreen(
                                             onClick = {
                                                 storePaymentReceived = true
                                                 storeTransactionRef = "CK-${System.currentTimeMillis().toString().takeLast(6)}"
-                                                Toast.makeText(context, "Đã ghi nhận thanh toán thành công!", Toast.LENGTH_SHORT).show()
+                                                val collectedAmount = if (parsedStoreAmount > 0) parsedStoreAmount else 0L
+                                                onConfirmStorePayment(collectedAmount, storeMemo)
+                                                Toast.makeText(context, "Đã ghi nhận thanh toán thành công và cập nhật doanh thu!", Toast.LENGTH_SHORT).show()
                                             },
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = SageGreenPrimary,

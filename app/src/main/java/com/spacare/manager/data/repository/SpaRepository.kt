@@ -590,7 +590,7 @@ class SpaRepository(context: Context? = null) {
             it.fullName.trim().equals(clientName.trim(), ignoreCase = true)
         } ?: return false
 
-        // Tìm gói liệu trình phù hợp
+        // Tìm gói liệu trình phù hợp với tên dịch vụ
         val matchedPackage = client.treatmentPackages.firstOrNull { pkg ->
             pkg.remainingSessions > 0 && (
                 serviceName.contains(pkg.name, ignoreCase = true) ||
@@ -600,7 +600,7 @@ class SpaRepository(context: Context? = null) {
                 (serviceName.contains("Mụn", ignoreCase = true) && pkg.name.contains("Mụn", ignoreCase = true)) ||
                 (serviceName.contains("Dưỡng Sinh", ignoreCase = true) && pkg.name.contains("Dưỡng Sinh", ignoreCase = true))
             )
-        } ?: client.treatmentPackages.firstOrNull { it.remainingSessions > 0 }
+        }
 
         if (matchedPackage != null) {
             checkInSession(client.id, matchedPackage.id)
@@ -1150,9 +1150,19 @@ class SpaRepository(context: Context? = null) {
                 database?.appointmentDao()?.insert(AppointmentEntity.fromDomain(updated))
             }
 
-            // Khi bấm hoàn thành các gói trừ dịch vụ thì tự trừ buổi của khách hàng đi
-            if (status == AppointmentStatus.COMPLETED) {
-                deductPackageSessionForClient(appt.clientName, appt.clientPhone, appt.serviceName)
+            // Khi bấm hoàn thành các gói trừ dịch vụ thì tự trừ buổi của khách hàng đi (chỉ trừ 1 lần duy nhất)
+            if (status == AppointmentStatus.COMPLETED && !appt.isSessionDeducted) {
+                if (appt.price <= 0L) {
+                    val deducted = deductPackageSessionForClient(appt.clientName, appt.clientPhone, appt.serviceName)
+                    if (deducted) {
+                        val marked = updated.copy(isSessionDeducted = true)
+                        current[index] = marked
+                        _appointments.value = current
+                        repositoryScope.launch {
+                            database?.appointmentDao()?.insert(AppointmentEntity.fromDomain(marked))
+                        }
+                    }
+                }
             }
 
             // Hủy nhắc hẹn nếu lịch đã hoàn thành hoặc đã hủy
@@ -1596,6 +1606,11 @@ class SpaRepository(context: Context? = null) {
             }
         }
 
+        // Lấy đúng tên KTV phụ trách từ cuộc hẹn / invoice thay vì hardcode
+        val assignedTech = current.staffName
+            ?: current.appointmentId?.let { id -> _appointments.value.find { it.id == id }?.staffName }
+            ?: "KTV Phục Vụ"
+
         // Lưu vào lịch sử giao dịch hóa đơn
         val newTx = InvoiceTransactionRecord(
             id = "TX-${System.currentTimeMillis()}",
@@ -1603,7 +1618,7 @@ class SpaRepository(context: Context? = null) {
             clientName = current.clientName,
             clientPhone = current.clientPhone,
             serviceName = current.items.joinToString(", ") { it.name },
-            technicianName = "Thảo My",
+            technicianName = assignedTech,
             time = timeOnly,
             date = dateOnly,
             amount = current.finalTotal,
@@ -1614,6 +1629,34 @@ class SpaRepository(context: Context? = null) {
         repositoryScope.launch {
             database?.transactionDao()?.insert(TransactionEntity.fromDomain(newTx))
         }
+    }
+
+    /**
+     * Ghi nhận giao dịch thu tiền nhanh qua mã VietQR Cửa hàng
+     */
+    fun recordStoreQrPayment(amount: Long, memo: String = ""): InvoiceTransactionRecord {
+        val timeOnly = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        val dateOnly = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
+        val code = "QR" + (1000..9999).random()
+
+        val newTx = InvoiceTransactionRecord(
+            id = "TX-${System.currentTimeMillis()}",
+            invoiceCode = code,
+            clientName = "Khách Quầy (QR Cửa Hàng)",
+            clientPhone = "",
+            serviceName = if (memo.isNotBlank()) "Thanh toán VietQR ($memo)" else "Thanh toán VietQR Cửa Hàng",
+            technicianName = "Quầy Thu Ngân",
+            time = timeOnly,
+            date = dateOnly,
+            amount = amount,
+            paymentMethod = "VietQR Cửa Hàng",
+            isPaid = true
+        )
+        _transactions.value = listOf(newTx) + _transactions.value
+        repositoryScope.launch {
+            database?.transactionDao()?.insert(TransactionEntity.fromDomain(newTx))
+        }
+        return newTx
     }
 
     fun resetInvoice() {
@@ -1660,7 +1703,8 @@ class SpaRepository(context: Context? = null) {
             accountNumber = store.accountNumber,
             accountHolder = store.accountHolder,
             defaultMemo = store.defaultMemo,
-            appointmentId = appointment.id
+            appointmentId = appointment.id,
+            staffName = appointment.staffName
         )
     }
 

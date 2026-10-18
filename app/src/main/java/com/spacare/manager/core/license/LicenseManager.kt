@@ -79,7 +79,7 @@ class LicenseManager private constructor(context: Context) {
                 activatedDate = "",
                 firstLaunchDate = firstLaunchDate,
                 statusTitle = "Dùng Thử Miễn Phí (Còn $days ngày $hours giờ)",
-                statusDescription = "Bạn đang trong thời gian 3 ngày dùng thử miễn phí. Sau khi hết hạn, vui lòng kích hoạt bản quyền để tiếp tục."
+                statusDescription = "Bạn đang trong thời gian 15 ngày dùng thử miễn phí. Sau khi hết hạn, vui lòng kích hoạt bản quyền để tiếp tục."
             )
         } else {
             LicenseStatus(
@@ -92,7 +92,7 @@ class LicenseManager private constructor(context: Context) {
                 activatedDate = "",
                 firstLaunchDate = firstLaunchDate,
                 statusTitle = "Đã Hết Hạn Dùng Thử",
-                statusDescription = "Gói dùng thử 3 ngày đã kết thúc. Vui lòng nhập Key kích hoạt bản quyền để tiếp tục sử dụng ứng dụng."
+                statusDescription = "Gói dùng thử 15 ngày đã kết thúc. Vui lòng nhập Key kích hoạt bản quyền để tiếp tục sử dụng ứng dụng."
             )
         }
     }

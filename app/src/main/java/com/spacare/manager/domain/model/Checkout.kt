@@ -104,7 +104,8 @@ data class CheckoutInvoice(
     val accountNumber: String = "1023456789",
     val accountHolder: String = "SPA CARE WELLNESS CENTER",
     val defaultMemo: String = "SPACARE",
-    val appointmentId: String? = null
+    val appointmentId: String? = null,
+    val staffName: String? = null
 ) {
     val subtotal: Long get() = items.sumOf { it.totalPrice }
     val finalTotal: Long get() = (subtotal - discountAmount + tipAmount).coerceAtLeast(0)
