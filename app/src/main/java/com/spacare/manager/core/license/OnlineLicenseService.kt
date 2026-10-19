@@ -64,7 +64,21 @@ object OnlineLicenseService {
         val deviceId = DeviceIdManager.getDeviceId(context)
         val deviceName = DeviceIdManager.getDeviceName()
 
-        // 1. Hỗ trợ Key Master dự phòng khẩn cấp cục bộ cho quản trị viên
+        // 1. Kiểm tra Key đặc biệt của Sale (SALE_VANDINH_2026): Vừa kích hoạt vĩnh viễn vừa mở quyền Sale
+        if (isSaleSpecialKey(cleanedKey)) {
+            com.spacare.manager.core.sale.SalePartnerManager.unlockSalePartner(context, cleanedKey)
+            return@withContext ActivationResult(
+                success = true,
+                message = "Đã kích hoạt Bản Quyền Trọn Đời & Mở Khóa Kênh Đối Tác Sale thành công!",
+                plan = "LIFETIME",
+                isLifetime = true,
+                activatedAt = "Ngay bây giờ",
+                expiresAt = "Vĩnh viễn",
+                deviceId = deviceId
+            )
+        }
+
+        // 2. Hỗ trợ Key Master dự phòng khẩn cấp cục bộ cho quản trị viên
         if (isMasterKey(cleanedKey)) {
             return@withContext ActivationResult(
                 success = true,
@@ -90,12 +104,9 @@ object OnlineLicenseService {
                     .toString()
 
                 val responseJsonStr = executeHttpRequestWithRedirect(builtUrl)
-                val res = parseActivationResponse(responseJsonStr)
-                if (res.success || res.isExpired) {
-                    return@withContext res
-                }
+                return@withContext parseActivationResponse(responseJsonStr)
             } catch (e: Exception) {
-                // Tiếp tục thử Cloudflare Worker
+                // Tiếp tục thử Cloudflare Worker nếu Google Apps Script mất mạng
             }
         }
 
@@ -125,10 +136,10 @@ object OnlineLicenseService {
         context: Context,
         key: String
     ): ActivationResult = withContext(Dispatchers.IO) {
-        if (isMasterKey(key)) {
+        if (isSaleSpecialKey(key) || isMasterKey(key)) {
             return@withContext ActivationResult(
                 success = true,
-                message = "Master Key hợp lệ",
+                message = "Key hợp lệ",
                 isLifetime = true
             )
         }
@@ -234,9 +245,37 @@ object OnlineLicenseService {
     }
 
     /**
+     * Tự động đăng ký key vừa mua từ Sale vào Google Sheet của tác giả
+     */
+    suspend fun registerPurchasedKeyToSheet(
+        context: Context,
+        key: String,
+        plan: String,
+        orderCode: Long
+    ): Boolean = withContext(Dispatchers.IO) {
+        val serverUrl = getServerUrl(context)
+        if (serverUrl.isBlank()) return@withContext false
+        try {
+            val syncUrl = Uri.parse(serverUrl).buildUpon()
+                .appendQueryParameter("action", "add_key")
+                .appendQueryParameter("key", key.trim().uppercase())
+                .appendQueryParameter("plan", plan.trim().uppercase())
+                .appendQueryParameter("notes", "Sale_PayOS_$orderCode")
+                .build()
+                .toString()
+
+            val responseJsonStr = executeHttpRequestWithRedirect(syncUrl)
+            val json = JSONObject(responseJsonStr)
+            json.optBoolean("success", false)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
      * Thực hiện HTTP GET xử lý redirect (Google Apps Script luôn trả về 302 redirect)
      */
-    private fun executeHttpRequestWithRedirect(urlString: String): String {
+    fun executeHttpRequestWithRedirect(urlString: String): String {
         var currentUrl = URL(urlString)
         var redirectCount = 0
         val maxRedirects = 6
@@ -321,6 +360,17 @@ object OnlineLicenseService {
                 message = "Dữ liệu máy chủ không đúng định dạng: ${jsonStr.take(100)}"
             )
         }
+    }
+
+    // Key bản quyền đặc biệt dành cho Sale (Active vĩnh viễn và mở khóa cổng Sale)
+    const val SALE_SPECIAL_KEY = "SALE_VANDINH_2026"
+
+    /**
+     * Kiểm tra xem key có phải key dành riêng cho Đối tác Sale hay không
+     */
+    fun isSaleSpecialKey(key: String): Boolean {
+        val trimmed = key.trim().uppercase()
+        return trimmed == SALE_SPECIAL_KEY || trimmed == "VANDINH_SALE_VIP"
     }
 
     /**

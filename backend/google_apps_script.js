@@ -321,6 +321,22 @@ function handleApiRequest(e) {
         sheet = ss.getSheetByName(SHEET_NAME);
       }
 
+      // Kiểm tra xem Key đã có trong bảng chưa, tránh trùng lặp
+      const data = sheet.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        const rowKey = (data[i][COL_KEY - 1] || "").toString().trim().toUpperCase();
+        if (rowKey === key) {
+          return createJsonResponse({
+            success: true,
+            alreadyExists: true,
+            message: "Key đã tồn tại trên hệ thống Google Sheet",
+            key: key,
+            plan: (data[i][COL_PLAN - 1] || plan).toString().trim().toUpperCase(),
+            status: (data[i][COL_STATUS - 1] || "AVAILABLE").toString().trim().toUpperCase()
+          });
+        }
+      }
+
       const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
       sheet.appendRow([
         key,

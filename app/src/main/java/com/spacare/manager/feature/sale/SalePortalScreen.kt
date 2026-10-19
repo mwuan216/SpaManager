@@ -33,9 +33,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.spacare.manager.core.designsystem.theme.*
+import com.spacare.manager.core.license.OnlineLicenseService
 import com.spacare.manager.core.sale.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -63,6 +66,30 @@ fun SalePortalScreen(
 
     // Kho key đã mua
     var purchasedKeys by remember { mutableStateOf(SalePartnerManager.getPurchasedKeys(context)) }
+
+    // Tự động kiểm tra và đồng bộ tất cả Key đã mua lên Google Sheet (phòng ngừa trường hợp trước đó chưa đồng bộ)
+    LaunchedEffect(purchasedKeys.size) {
+        if (purchasedKeys.isNotEmpty()) {
+            withContext(Dispatchers.IO) {
+                purchasedKeys.forEach { pKey ->
+                    val plan = when (pKey.tierId.lowercase()) {
+                        "spa_1m" -> "1_MONTH"
+                        "spa_3m" -> "3_MONTHS"
+                        "spa_6m" -> "6_MONTHS"
+                        "spa_1y" -> "1_YEAR"
+                        "spa_life" -> "LIFETIME"
+                        else -> "1_MONTH"
+                    }
+                    OnlineLicenseService.registerPurchasedKeyToSheet(
+                        context = context,
+                        key = pKey.key,
+                        plan = plan,
+                        orderCode = pKey.orderCode
+                    )
+                }
+            }
+        }
+    }
 
     val numberFormatter = remember { NumberFormat.getNumberInstance(Locale("vi", "VN")) }
 
@@ -391,6 +418,48 @@ fun SalePortalScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = CharcoalTextMuted
                             )
+
+                            if (purchasedKeys.isNotEmpty()) {
+                                var isSyncingAll by remember { mutableStateOf(false) }
+                                TextButton(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            isSyncingAll = true
+                                            var count = 0
+                                            withContext(Dispatchers.IO) {
+                                                purchasedKeys.forEach { pKey ->
+                                                    val plan = when (pKey.tierId.lowercase()) {
+                                                        "spa_1m" -> "1_MONTH"
+                                                        "spa_3m" -> "3_MONTHS"
+                                                        "spa_6m" -> "6_MONTHS"
+                                                        "spa_1y" -> "1_YEAR"
+                                                        "spa_life" -> "LIFETIME"
+                                                        else -> "1_MONTH"
+                                                    }
+                                                    val ok = OnlineLicenseService.registerPurchasedKeyToSheet(
+                                                        context = context,
+                                                        key = pKey.key,
+                                                        plan = plan,
+                                                        orderCode = pKey.orderCode
+                                                    )
+                                                    if (ok) count++
+                                                }
+                                            }
+                                            isSyncingAll = false
+                                            Toast.makeText(context, "Đã đồng bộ $count/${purchasedKeys.size} Key lên Google Sheet!", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    enabled = !isSyncingAll
+                                ) {
+                                    if (isSyncingAll) {
+                                        CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp, color = SageGreenPrimary)
+                                    } else {
+                                        Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(14.dp), tint = SageGreenPrimary)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Đồng bộ Sheet", fontSize = 11.sp, color = SageGreenPrimary, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -473,6 +542,38 @@ fun SalePortalScreen(
                                             )
 
                                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                // Nút đồng bộ lên Google Sheet
+                                                IconButton(
+                                                    onClick = {
+                                                        coroutineScope.launch {
+                                                            val plan = when (pKey.tierId.lowercase()) {
+                                                                "spa_1m" -> "1_MONTH"
+                                                                "spa_3m" -> "3_MONTHS"
+                                                                "spa_6m" -> "6_MONTHS"
+                                                                "spa_1y" -> "1_YEAR"
+                                                                "spa_life" -> "LIFETIME"
+                                                                else -> "1_MONTH"
+                                                            }
+                                                            val ok = withContext(Dispatchers.IO) {
+                                                                OnlineLicenseService.registerPurchasedKeyToSheet(
+                                                                    context = context,
+                                                                    key = pKey.key,
+                                                                    plan = plan,
+                                                                    orderCode = pKey.orderCode
+                                                                )
+                                                            }
+                                                            if (ok) {
+                                                                Toast.makeText(context, "Đã đồng bộ Key lên máy chủ Google Sheet!", Toast.LENGTH_SHORT).show()
+                                                            } else {
+                                                                Toast.makeText(context, "Chưa thể kết nối Google Sheet. Vui lòng thử lại.", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(Icons.Default.CloudUpload, contentDescription = "Đồng bộ", tint = SageGreenPrimary, modifier = Modifier.size(16.dp))
+                                                }
+
                                                 // Nút sao chép
                                                 IconButton(
                                                     onClick = {
@@ -524,6 +625,14 @@ fun SalePortalScreen(
                 delay(3000)
                 val checkRes = PayOSPaymentService.checkPayment(context, tier.id, pay.orderCode)
                 if (checkRes.paid && checkRes.key.isNotBlank()) {
+                    // Tự động đồng bộ Key lên Google Sheet ngay lập tức
+                    OnlineLicenseService.registerPurchasedKeyToSheet(
+                        context = context,
+                        key = checkRes.key,
+                        plan = tier.plan,
+                        orderCode = pay.orderCode
+                    )
+
                     val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
                     val newPurchased = PurchasedKey(
                         key = checkRes.key,
@@ -687,6 +796,14 @@ fun SalePortalScreen(
                             val checkRes = PayOSPaymentService.checkPayment(context, tier.id, pay.orderCode)
                             isCheckingPayment = false
                             if (checkRes.paid && checkRes.key.isNotBlank()) {
+                                // Tự động đồng bộ Key lên Google Sheet ngay lập tức
+                                OnlineLicenseService.registerPurchasedKeyToSheet(
+                                    context = context,
+                                    key = checkRes.key,
+                                    plan = tier.plan,
+                                    orderCode = pay.orderCode
+                                )
+
                                 val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
                                 val newPurchased = PurchasedKey(
                                     key = checkRes.key,

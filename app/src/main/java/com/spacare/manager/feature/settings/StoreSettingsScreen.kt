@@ -109,11 +109,11 @@ fun StoreSettingsScreen(
     var inputLicenseKey by remember { mutableStateOf("") }
     var licenseError by remember { mutableStateOf<String?>(null) }
     var isActivatingLicense by remember { mutableStateOf(false) }
-    var showServerUrlDialog by remember { mutableStateOf(false) }
-    var inputServerUrl by remember { mutableStateOf(OnlineLicenseService.getServerUrl(context)) }
-    var isTestingConnection by remember { mutableStateOf(false) }
-    var testResultMsg by remember { mutableStateOf<String?>(null) }
     var showSalePortalScreen by remember { mutableStateOf(false) }
+    var isSalePartner by remember { mutableStateOf(SalePartnerManager.isSalePartner(context)) }
+    LaunchedEffect(licenseStatus, showSalePortalScreen) {
+        isSalePartner = SalePartnerManager.isSalePartner(context)
+    }
     var showConfirmRealUsageDialog by remember { mutableStateOf(false) }
     var showConfirmImportDialog by remember { mutableStateOf(false) }
     var pendingImportJson by remember { mutableStateOf<String?>(null) }
@@ -925,6 +925,7 @@ fun StoreSettingsScreen(
                                                 isActivatingLicense = false
                                                 if (res.success) {
                                                     licenseStatus = licenseManager.getLicenseStatus()
+                                                    isSalePartner = SalePartnerManager.isSalePartner(context)
                                                     inputLicenseKey = ""
                                                     Toast.makeText(context, res.message, Toast.LENGTH_LONG).show()
                                                 } else {
@@ -1083,182 +1084,78 @@ fun StoreSettingsScreen(
                         }
                     }
 
-                    // 3. Thẻ Quản Lý Máy Chủ Xác Thực Key Online
-                    item {
-                        val currentServerUrl = OnlineLicenseService.getServerUrl(context)
-
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(18.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                    // 3. Thẻ Kênh Đối Tác & Đại Lý Bán Key (Sale 70%) - Chỉ hiển thị khi đã kích hoạt bằng Key Sale (SALE_VANDINH_2026)
+                    if (isSalePartner) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.medium,
+                                colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(18.dp)) {
                                     Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CloudQueue,
-                                            contentDescription = null,
-                                            tint = SageGreenPrimary,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                        Text(
-                                            text = "Máy Chủ Quản Lý Key",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = CharcoalTextPrimary
-                                        )
-                                    }
-
-                                    IconButton(
-                                        onClick = {
-                                            inputServerUrl = OnlineLicenseService.getServerUrl(context)
-                                            testResultMsg = null
-                                            showServerUrlDialog = true
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Handshake,
+                                                contentDescription = null,
+                                                tint = SageGreenPrimary,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Text(
+                                                text = "Kênh Đối Tác Sale (70%)",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = CharcoalTextPrimary
+                                            )
                                         }
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Edit,
-                                            contentDescription = "Chỉnh sửa URL",
-                                            tint = SageGreenPrimary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
 
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = if (currentServerUrl.isNotBlank()) currentServerUrl else "Chưa cấu hình URL Google Apps Script Web App",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (currentServerUrl.isNotBlank()) SageGreenPrimary else AllergyAlertRed,
-                                    maxLines = 2
-                                )
-
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    OutlinedButton(
-                                        onClick = {
-                                            inputServerUrl = OnlineLicenseService.getServerUrl(context)
-                                            testResultMsg = null
-                                            showServerUrlDialog = true
-                                        },
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text("Cài Đặt URL")
-                                    }
-
-                                    Button(
-                                        onClick = {
-                                            if (currentServerUrl.isBlank()) {
-                                                Toast.makeText(context, "Vui lòng cài đặt URL Server trước!", Toast.LENGTH_SHORT).show()
-                                                return@Button
-                                            }
-                                            coroutineScope.launch {
-                                                isTestingConnection = true
-                                                val (ok, msg) = OnlineLicenseService.testServerConnection(currentServerUrl)
-                                                isTestingConnection = false
-                                                Toast.makeText(context, if (ok) "Kết nối máy chủ OK: $msg" else "Lỗi kết nối: $msg", Toast.LENGTH_LONG).show()
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
-                                        enabled = !isTestingConnection,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        if (isTestingConnection) {
-                                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                        } else {
-                                            Text("Kiểm Tra Kết Nối", color = Color.White)
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = SuccessGreenContainer
+                                        ) {
+                                            Text(
+                                                text = "ĐÃ MỞ QUYỀN SALE",
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = SuccessGreen
+                                            )
                                         }
                                     }
-                                }
-                            }
-                        }
-                    }
 
-                    // 4. Thẻ Kênh Đối Tác & Đại Lý Bán Key (Sale 70%)
-                    item {
-                        val isSale = remember(showSalePortalScreen) { SalePartnerManager.isSalePartner(context) }
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(18.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Handshake,
-                                            contentDescription = null,
-                                            tint = SageGreenPrimary,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                        Text(
-                                            text = "Kênh Đối Tác Sale (70%)",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = CharcoalTextPrimary
-                                        )
-                                    }
-
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = if (isSale) SuccessGreenContainer else SpaGoldContainer
-                                    ) {
-                                        Text(
-                                            text = if (isSale) "ĐÃ MỞ QUYỀN SALE" else "CHIẾT KHẤU 70%",
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isSale) SuccessGreen else SpaGoldPrimary
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(
-                                    text = if (isSale)
-                                        "Bạn đang ở chế độ Đối Tác Bán Key. Mua key sỉ chỉ với 30% giá bán lẻ, nhận key tự động qua payOS và hưởng trọn 70% lợi nhuận."
-                                    else
-                                        "Dành cho Cộng Tác Viên & Sale: Mua key giá sỉ (nạp 30%), nhận key tự động tức thì qua payOS để bàn giao cho khách hàng (Sale hưởng 70% lợi nhuận).",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = CharcoalTextSecondary
-                                )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Button(
-                                    onClick = { showSalePortalScreen = true },
-                                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(
-                                        imageVector = if (isSale) Icons.Default.Storefront else Icons.Default.VpnKey,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
                                     Text(
-                                        text = if (isSale) "Mở Cổng Mua Key Đại Lý" else "Kích Hoạt Quyền Đối Tác Sale",
-                                        fontWeight = FontWeight.Bold
+                                        text = "Bạn đang ở chế độ Đối Tác Bán Key. Mua key sỉ chỉ với 30% giá bán lẻ, nhận key tự động tức thì qua payOS và hưởng trọn 70% lợi nhuận.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextSecondary
                                     )
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Button(
+                                        onClick = { showSalePortalScreen = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Storefront,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Mở Cổng Mua Key Đại Lý",
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1893,105 +1790,6 @@ fun StoreSettingsScreen(
         )
     }
 
-    if (showServerUrlDialog) {
-        AlertDialog(
-            onDismissRequest = { showServerUrlDialog = false },
-            title = {
-                Text(
-                    text = "Cấu Hình URL Quản Lý Key Online",
-                    fontWeight = FontWeight.Bold,
-                    color = CharcoalTextPrimary
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Dán URL Web App của Google Apps Script (kết thúc bằng /exec) để kết nối hệ thống quản lý key của bạn:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = CharcoalTextSecondary
-                    )
-
-                    OutlinedTextField(
-                        value = inputServerUrl,
-                        onValueChange = { inputServerUrl = it },
-                        label = { Text("URL Google Apps Script Web App") },
-                        placeholder = { Text("https://script.google.com/macros/s/.../exec") },
-                        singleLine = false,
-                        maxLines = 3,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                val clip = clipboardManager.getText()?.text
-                                if (!clip.isNullOrBlank()) {
-                                    inputServerUrl = clip.trim()
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Dán Clipboard", fontSize = 12.sp)
-                        }
-
-                        Button(
-                            onClick = {
-                                if (inputServerUrl.isBlank()) {
-                                    Toast.makeText(context, "Vui lòng nhập URL!", Toast.LENGTH_SHORT).show()
-                                    return@Button
-                                }
-                                coroutineScope.launch {
-                                    isTestingConnection = true
-                                    val (ok, msg) = OnlineLicenseService.testServerConnection(inputServerUrl.trim())
-                                    isTestingConnection = false
-                                    testResultMsg = if (ok) "✓ Kết nối thành công: $msg" else "✗ Lỗi: $msg"
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
-                            enabled = !isTestingConnection,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            if (isTestingConnection) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                            } else {
-                                Text("Kiểm Tra", fontSize = 12.sp, color = Color.White)
-                            }
-                        }
-                    }
-
-                    if (testResultMsg != null) {
-                        Text(
-                            text = testResultMsg!!,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (testResultMsg!!.startsWith("✓")) SuccessGreen else AllergyAlertRed,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        OnlineLicenseService.saveServerUrl(context, inputServerUrl)
-                        showServerUrlDialog = false
-                        Toast.makeText(context, "Đã lưu cấu hình máy chủ quản lý key", Toast.LENGTH_SHORT).show()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary, contentColor = Color.White)
-                ) {
-                    Text("Lưu URL", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showServerUrlDialog = false }) {
-                    Text("Đóng")
-                }
-            },
-            containerColor = WarmBeigeSurface
-        )
-    }
 
     if (showSalePortalScreen) {
         SalePortalScreen(onDismissRequest = { showSalePortalScreen = false })

@@ -186,6 +186,10 @@ class LicenseManager private constructor(private val context: Context) {
         val result = OnlineLicenseService.activateKey(context, cleanedKey)
 
         if (result.success) {
+            if (OnlineLicenseService.isSaleSpecialKey(cleanedKey)) {
+                com.spacare.manager.core.sale.SalePartnerManager.unlockSalePartner(context, cleanedKey)
+            }
+
             val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
             val activatedDateStr = result.activatedAt.ifBlank { sdf.format(Date()) }
             val expiresDateStr = result.expiresAt.ifBlank { if (result.isLifetime) "Vĩnh viễn" else "" }
@@ -255,6 +259,22 @@ class LicenseManager private constructor(private val context: Context) {
      */
     fun activateLicense(rawKey: String): Boolean {
         val cleanedKey = rawKey.trim().uppercase()
+        if (OnlineLicenseService.isSaleSpecialKey(cleanedKey)) {
+            com.spacare.manager.core.sale.SalePartnerManager.unlockSalePartner(context, cleanedKey)
+            val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+            prefs.edit()
+                .putBoolean(KEY_IS_ACTIVATED, true)
+                .putString(KEY_ACTIVATED_KEY, cleanedKey)
+                .putString(KEY_ACTIVATED_DATE, sdf.format(Date()))
+                .putString(KEY_EXPIRES_DATE, "Vĩnh viễn")
+                .putLong(KEY_EXPIRES_MS, 0L)
+                .putBoolean(KEY_IS_LIFETIME, true)
+                .putString(KEY_PLAN_NAME, "Bản Quyền Trọn Đời (PRO - Đối Tác Sale)")
+                .putString(KEY_DEVICE_ID, DeviceIdManager.getDeviceId(context))
+                .apply()
+            return true
+        }
+
         if (OnlineLicenseService.isMasterKey(cleanedKey)) {
             val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
             prefs.edit()
