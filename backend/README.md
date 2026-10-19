@@ -1,73 +1,68 @@
-# Hướng Dẫn Thiết Lập Hệ Thống Quản Lý & Bán Key Online (Văn Định Skinlab)
+# Hướng Dẫn Hệ Thống Quản Lý & Phát Hành Key Bản Quyền (Văn Định Skinlab)
 
-Hệ thống quản lý key bản quyền sử dụng **Google Sheets + Google Apps Script Web App**:
-- **Chi phí:** Hoàn toàn **0đ (Miễn phí 100%)** trọn đời từ hạ tầng Google Cloud.
-- **Bảo mật:** Mỗi Key được khóa cứng vào **duy nhất 1 thiết bị (Device ID)** khi kích hoạt lần đầu.
-- **Tiện ích:** Quản trị viên có thể xem, tạo key, quản lý khách hàng, gia hạn hoặc reset máy trực tiếp trên ứng dụng Google Sheets trên điện thoại hoặc máy tính.
-
----
-
-## 1. Các bước triển khai (Chỉ mất 2 phút)
-
-### Bước 1: Tạo Google Sheet mới
-1. Truy cập [sheet.new](https://sheet.new) trên trình duyệt (hoặc tạo file Google Sheets mới trên Google Drive của bạn).
-2. Đổi tên file bảng tính thành: `Văn Định Skinlab - Quản Lý Key Bản Quyền`.
-
-### Bước 2: Dán mã nguồn Apps Script
-1. Trên thanh menu Google Sheets, chọn **Tiện ích mở rộng (Extensions)** > **Apps Script**.
-2. Xóa hết mã mặc định trong tệp `Mã.gs` (`Code.gs`).
-3. Mở file [google_apps_script.js](file:///f:/Project/SpaManager/backend/google_apps_script.js), sao chép toàn bộ nội dung và dán vào.
-4. Bấm biểu tượng **Lưu (Save)** (hoặc phím tắt `Ctrl + S`).
-
-### Bước 3: Khởi tạo bảng dữ liệu
-1. Ở thanh công cụ phía trên trong Apps Script, chọn hàm **`setupSheet`** và bấm **Chạy (Run)**.
-2. Nếu Google yêu cầu ủy quyền (Authorization Required):
-   - Chọn tài khoản Google của bạn -> Bấm **Nâng cao (Advanced)** -> Bấm **Đi tới ... (Không an toàn)** -> Bấm **Cho phép (Allow)**.
-3. Quay lại trang Google Sheets, bạn sẽ thấy bảng tính đã được tạo sẵn 10 cột tiêu chuẩn với màu sắc Sage Green sang trọng cùng các phím menu tiện ích.
-
-### Bước 4: Triển khai thành Web App (Lấy API URL)
-1. Ở góc trên bên phải màn hình Apps Script, bấm nút **Triển khai (Deploy)** > **Tùy chọn triển khai mới (New deployment)**.
-2. Bấm vào biểu tượng bánh răng **Chọn loại** > Chọn **Ứng dụng web (Web app)**.
-3. Điền các trường:
-   - **Mô tả (Description):** `SpaCare License API`
-   - **Thực thi dưới dạng (Execute as):** `Tôi (tài khoản của bạn)` *(Me)*
-   - **Ai có quyền truy cập (Who has access):** **`Bất kỳ ai (Anyone)`** *(Quan trọng: Phải chọn Anyone để ứng dụng Android có thể gửi request xác thực key)*
-4. Bấm **Triển khai (Deploy)**.
-5. Google sẽ cấp cho bạn một đường dẫn dạng:
-   ```
-   https://script.google.com/macros/s/AKfycbx.../exec
-   ```
-6. **Sao chép URL này** để nhập vào ứng dụng SpaManager hoặc gắn làm URL mặc định!
+Hệ thống gồm 2 thành phần liên kết chặt chẽ:
+1. **Google Sheets + Apps Script:** Quản lý danh sách Key, khóa cứng 1 Key / 1 Thiết bị (`Device ID`), reset máy khi khách đổi thiết bị.
+2. **Cloudflare Worker + payOS:** Kênh phân phối cho Sale (Cộng Tác Viên). Sale nạp 30% giá sỉ qua VietQR payOS tự động, hưởng lợi nhuận 70%, hệ thống tự động sinh và bàn giao Key ngay lập tức trong 3 giây.
 
 ---
 
-## 2. Cách Sử Dụng Hàng Ngày Để Bán Key Cho Khách
+## 1. Bảng Giá & Chính Sách Chiết Khấu Đại Lý (Sale 70% - Bạn 30%)
 
-### A. Tạo Key mới để bán:
-1. Mở trang Google Sheet của bạn trên điện thoại hoặc máy tính.
-2. Trên thanh menu, bấm **💆 Quản Lý Key SpaCare** > **➕ Tạo Key Mới Tự Động**.
-3. Nhập số lượng key muốn tạo (vd: `1`, `5`, `10`).
-4. Chọn loại gói:
-   - `LIFETIME`: Bản quyền vĩnh viễn (Trọn đời).
-   - `1_MONTH`: Hạn dùng 30 ngày kể từ lúc khách kích hoạt.
-   - `6_MONTHS`: Hạn dùng 180 ngày.
-   - `1_YEAR`: Hạn dùng 365 ngày.
-5. Nhập tên khách / tên Spa mua.
-6. Hệ thống sẽ sinh key định dạng an toàn: `VD-ABCD-EFGH-1234`. Bạn chỉ cần copy key này gửi cho khách hàng.
+| Gói Bản Quyền | Giá Bán Lẻ (Khách trả) | Tiền Sale Nạp (Bạn nhận 30%) | Lợi Nhuận Của Sale (70%) |
+| :--- | :--- | :--- | :--- |
+| **Gói 1 Tháng** | 80.000 ₫ | **24.000 ₫** | **56.000 ₫** |
+| **Gói 3 Tháng** | 180.000 ₫ | **54.000 ₫** | **126.000 ₫** |
+| **Gói 6 Tháng** | 320.000 ₫ | **96.000 ₫** | **224.000 ₫** |
+| **Gói 1 Năm** | 500.000 ₫ | **150.000 ₫** | **350.000 ₫** |
+| **Gói Vĩnh Viễn** | 1.500.000 ₫ | **450.000 ₫** | **1.050.000 ₫** |
 
-### B. Khi Khách Hàng Nhập Key Trên Điện Thoại:
-- Ứng dụng SpaManager sẽ lấy Mã định danh thiết bị (`Device ID`) và Tên dòng máy (`Device Name`) gửi lên Google Sheet.
-- Dòng chứa key đó trên Google Sheet sẽ tự động chuyển sang:
-  - Cột Trạng Thái: `ACTIVATED`
-  - Cột Mã Thiết Bị: Được điền tự động mã máy của khách.
-  - Cột Ngày Kích Hoạt & Hạn Sử Dụng: Được tự động tính và điền.
-- Nếu người khác cố tình lấy key này nhập vào máy khác: Ứng dụng sẽ báo ngay lỗi *"Key này đã được kích hoạt trên thiết bị khác..."* và không cho sử dụng.
+---
 
-### C. Khách Hàng Đổi Điện Thoại Mới:
-- Khi khách hàng đổi máy và muốn dùng tiếp key cũ:
-- Bạn chỉ cần mở Google Sheet, chọn dòng của key đó, bấm **💆 Quản Lý Key SpaCare** > **🔄 Reset Thiết Bị (Cho phép đổi máy)**.
-- Dòng đó sẽ được giải phóng thiết bị cũ để khách hàng kích hoạt lại trên máy mới một cách tiện lợi!
+## 2. Cách Hoạt Động Của Kênh Bán Key Cho Sale (Tự Động 100%)
 
-### D. Khóa Key Khi Cần Thiết:
-- Nếu khách hàng hoàn tiền hoặc hủy hợp đồng:
-- Chọn dòng key đó, bấm **🔒 Khóa / Mở Khóa Key Đang Chọn** (Trạng thái chuyển sang `BLOCKED`). Khi app kết nối mạng, key này sẽ bị thu hồi quyền truy cập.
+### Bước 1: Bạn Cấp Mã Đối Tác Cho Người Sale
+- Người Sale tải app Văn Định Skinlab về điện thoại.
+- Vào mục **Cài đặt** > **Bản quyền** > Bấm **"Kích Hoạt Quyền Đối Tác Sale"**.
+- Nhập một trong các mã hợp lệ:
+  - `SALE_VANDINH_2026`
+  - `VANDINH_SALE_VIP`
+  - Hoặc mã cá nhân bắt đầu bằng `SALE-` hoặc `VD-SALE-` (Ví dụ: `SALE-TUAN`, `SALE-LAN`...).
+- Ngay sau khi nhập đúng mã, app sẽ mở khóa giao diện **"Trung Tâm Đối Tác & Mua Key Đại Lý"**.
+
+### Bước 2: Sale Mua Key Khi Có Khách
+- Khi có khách muốn mua gói (ví dụ gói 1 Năm - 500.000 ₫):
+- Sale mở app, chọn **Gói 1 Năm** > Bấm **"Mua Key"**.
+- App hiển thị mã QR VietQR payOS với số tiền đúng 30%: **150.000 ₫** (chuyển về tài khoản MBBank `8500121062001 - BUI MINH QUAN`).
+- Sale quét mã chuyển khoản qua app ngân hàng của họ.
+- **Trong vòng 3 giây**, hệ thống payOS xác nhận tiền vào tài khoản:
+  - Cloudflare Worker tự động sinh ra mã Key mới: `VD-1Y-XXXX-YYYY`.
+  - App của Sale tự động nhận key, hiển thị Popup chúc mừng rực rỡ kèm nút **"Sao Chép Key"** và nút **"Gửi Cho Khách"** (soạn sẵn tin nhắn Zalo/SMS).
+  - Key được lưu vĩnh viễn vào **"Kho Key Của Bạn"** trên máy Sale để quản lý lại bất cứ lúc nào.
+
+### Bước 3: Khách Hàng Nhập Key Trên Máy Của Khách
+- Khách hàng tải app về điện thoại của họ.
+- Mở **Cài đặt** > **Bản quyền** > Dán mã key nhận từ Sale và bấm **"Kích Hoạt"**.
+- Hệ thống tự động khóa mã máy của khách (`Device ID`) vào Key này. Người khác không thể dùng trộm key.
+
+---
+
+## 3. Cách Cập Nhật Cloudflare Worker payOS (Chỉ mất 1 phút)
+
+1. Mở file [backend/cloudflare_worker_payos.js](file:///f:/Project/SpaManager/backend/cloudflare_worker_payos.js) và sao chép toàn bộ code.
+2. Truy cập [Cloudflare Dashboard](https://dash.cloudflare.com/) > **Workers & Pages** > Chọn Worker của bạn (`wclon-payment`).
+3. Bấm **Edit Code**, dán đè toàn bộ code mới vào và bấm **Deploy**.
+4. (Tùy chọn) Trong mục **Settings** > **Variables and Secrets**, bạn có thể thêm biến `GOOGLE_SHEET_URL` (dán link Web App của Google Apps Script) để mỗi khi Sale mua key qua payOS, key sẽ tự động xuất hiện trên Google Sheet của bạn.
+
+---
+
+## 4. Cách Triển Khai Google Sheets Quản Lý Key
+
+1. Mở Google Sheet mới tại [sheet.new](https://sheet.new).
+2. Vào **Tiện ích mở rộng** > **Apps Script**.
+3. Dán mã nguồn từ [backend/google_apps_script.js](file:///f:/Project/SpaManager/backend/google_apps_script.js) vào.
+4. Chọn hàm `setupSheet` và bấm **Chạy (Run)** để khởi tạo bảng 10 cột.
+5. Bấm **Triển khai (Deploy)** > **Tùy chọn triển khai mới (New deployment)**:
+   - Loại: **Ứng dụng web (Web app)**
+   - Thực thi dưới dạng: **Tôi (Me)**
+   - Ai có quyền truy cập: **Bất kỳ ai (Anyone)**
+6. Copy URL Web App và dán vào mục Cài đặt trong app SpaManager.

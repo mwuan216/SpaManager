@@ -277,9 +277,48 @@ function handleApiRequest(e) {
       return createJsonResponse(processKeyActivation(key, deviceId, deviceName, action === "activate"));
     }
 
+    if (action === "add_key") {
+      const key = (params.key || "").trim().toUpperCase();
+      const plan = (params.plan || "LIFETIME").trim().toUpperCase();
+      const notes = (params.notes || "Sale Mua Qua payOS").trim();
+      const customer = (params.customer || "Khách Hàng Của Sale").trim();
+
+      if (!key) {
+        return createJsonResponse({ success: false, message: "Thiếu mã Key." });
+      }
+
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      let sheet = ss.getSheetByName(SHEET_NAME);
+      if (!sheet) {
+        setupSheet();
+        sheet = ss.getSheetByName(SHEET_NAME);
+      }
+
+      const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
+      sheet.appendRow([
+        key,
+        plan,
+        "AVAILABLE",
+        "",
+        "",
+        customer,
+        nowStr,
+        "",
+        plan === "LIFETIME" ? "Vĩnh viễn" : "",
+        notes
+      ]);
+
+      return createJsonResponse({
+        success: true,
+        message: "Đã lưu key mới từ payOS vào Google Sheet thành công",
+        key: key,
+        plan: plan
+      });
+    }
+
     return createJsonResponse({
       success: false,
-      message: "Action không hợp lệ. Hỗ trợ: 'ping', 'activate', 'verify'."
+      message: "Action không hợp lệ. Hỗ trợ: 'ping', 'activate', 'verify', 'add_key'."
     });
 
   } catch (err) {

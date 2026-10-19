@@ -40,6 +40,8 @@ import androidx.compose.foundation.BorderStroke
 import com.spacare.manager.core.license.DeviceIdManager
 import com.spacare.manager.core.license.LicenseManager
 import com.spacare.manager.core.license.OnlineLicenseService
+import com.spacare.manager.core.sale.SalePartnerManager
+import com.spacare.manager.feature.sale.SalePortalScreen
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
@@ -111,6 +113,7 @@ fun StoreSettingsScreen(
     var inputServerUrl by remember { mutableStateOf(OnlineLicenseService.getServerUrl(context)) }
     var isTestingConnection by remember { mutableStateOf(false) }
     var testResultMsg by remember { mutableStateOf<String?>(null) }
+    var showSalePortalScreen by remember { mutableStateOf(false) }
     var showConfirmRealUsageDialog by remember { mutableStateOf(false) }
     var showConfirmImportDialog by remember { mutableStateOf(false) }
     var pendingImportJson by remember { mutableStateOf<String?>(null) }
@@ -1149,7 +1152,86 @@ fun StoreSettingsScreen(
                         }
                     }
 
-                    // 2. Thẻ Chế Độ Dữ Liệu Ứng Dụng (Bắt Đầu Sử Dụng Thực Tế)
+                    // 4. Thẻ Kênh Đối Tác & Đại Lý Bán Key (Sale 70%)
+                    item {
+                        val isSale = remember(showSalePortalScreen) { SalePartnerManager.isSalePartner(context) }
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(18.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Handshake,
+                                            contentDescription = null,
+                                            tint = SageGreenPrimary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Text(
+                                            text = "Kênh Đối Tác Sale (70%)",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CharcoalTextPrimary
+                                        )
+                                    }
+
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (isSale) SuccessGreenContainer else SpaGoldContainer
+                                    ) {
+                                        Text(
+                                            text = if (isSale) "ĐÃ MỞ QUYỀN SALE" else "CHIẾT KHẤU 70%",
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSale) SuccessGreen else SpaGoldPrimary
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = if (isSale)
+                                        "Bạn đang ở chế độ Đối Tác Bán Key. Mua key sỉ chỉ với 30% giá bán lẻ, nhận key tự động qua payOS và hưởng trọn 70% lợi nhuận."
+                                    else
+                                        "Dành cho Cộng Tác Viên & Sale: Mua key giá sỉ (nạp 30%), nhận key tự động tức thì qua payOS để bàn giao cho khách hàng (Sale hưởng 70% lợi nhuận).",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = CharcoalTextSecondary
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = { showSalePortalScreen = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = if (isSale) Icons.Default.Storefront else Icons.Default.VpnKey,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (isSale) "Mở Cổng Mua Key Đại Lý" else "Kích Hoạt Quyền Đối Tác Sale",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 5. Thẻ Chế Độ Dữ Liệu Ứng Dụng (Bắt Đầu Sử Dụng Thực Tế)
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -1876,6 +1958,10 @@ fun StoreSettingsScreen(
             },
             containerColor = WarmBeigeSurface
         )
+    }
+
+    if (showSalePortalScreen) {
+        SalePortalScreen(onDismissRequest = { showSalePortalScreen = false })
     }
 }
 
