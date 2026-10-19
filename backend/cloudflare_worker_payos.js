@@ -156,6 +156,12 @@ function isPlanProLifetime(plan) {
     return p === "LIFETIME" || p === "SPA_LIFE" || p === "PRO" || p === "VĨNH VIỄN" || p === "TRỌN ĐỜI";
 }
 
+const DEFAULT_GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbzdM_ZRNwnVX5UmuZ61N0dZhkzKdnrpVvLIVgSb9W2W8h6HukXexENAtPzjVy0-u3zBIg/exec";
+
+function getGoogleSheetUrl(env) {
+    return (env && env.GOOGLE_SHEET_URL && env.GOOGLE_SHEET_URL.trim()) ? env.GOOGLE_SHEET_URL.trim() : DEFAULT_GOOGLE_SHEET_URL;
+}
+
 export default {
     async fetch(request, env, ctx) {
         // Xử lý CORS để app di động và web đều gọi được
@@ -366,10 +372,11 @@ export default {
                                 }
                                 paidLicensesCache.set(`key_${generatedKey}`, keyRecord);
 
-                                // Đồng bộ tự động sang Google Sheet nếu có GOOGLE_SHEET_URL
-                                if (env.GOOGLE_SHEET_URL && (tier.app === "spamanager" || app === "spamanager")) {
+                                // Đồng bộ tự động sang Google Sheet
+                                const targetSheetUrl = getGoogleSheetUrl(env);
+                                if (targetSheetUrl && (tier.app === "spamanager" || app === "spamanager")) {
                                     try {
-                                        const syncUrl = `${env.GOOGLE_SHEET_URL}?action=add_key&key=${encodeURIComponent(generatedKey)}&plan=${encodeURIComponent(tier.plan || "LIFETIME")}&notes=${encodeURIComponent("Sale_PayOS_" + numericOrderCode)}`;
+                                        const syncUrl = `${targetSheetUrl}?action=add_key&key=${encodeURIComponent(generatedKey)}&plan=${encodeURIComponent(tier.plan || "LIFETIME")}&notes=${encodeURIComponent("Sale_PayOS_" + numericOrderCode)}`;
                                         ctx.waitUntil(fetch(syncUrl));
                                     } catch (e) {}
                                 }
@@ -451,9 +458,10 @@ export default {
             }
 
             // B. Nếu không tìm thấy trong KV nhưng có cấu hình Google Sheets -> Tra cứu Google Sheet
-            if (!record && env.GOOGLE_SHEET_URL) {
+            const fallbackSheetUrl = getGoogleSheetUrl(env);
+            if (!record && fallbackSheetUrl) {
                 try {
-                    const sheetRes = await fetch(`${env.GOOGLE_SHEET_URL}?action=activate&key=${encodeURIComponent(rawKey)}&deviceId=${encodeURIComponent(deviceId)}&deviceName=${encodeURIComponent(deviceName)}`);
+                    const sheetRes = await fetch(`${fallbackSheetUrl}?action=activate&key=${encodeURIComponent(rawKey)}&deviceId=${encodeURIComponent(deviceId)}&deviceName=${encodeURIComponent(deviceName)}`);
                     const sheetData = await sheetRes.json();
                     return jsonResponse(sheetData);
                 } catch (e) {}
@@ -550,10 +558,11 @@ export default {
                 paidLicensesCache.set(`key_${rawKey}`, record);
                 paidLicensesCache.set(`device_${deviceId}`, record);
 
-                // Đồng bộ sang Google Sheet nếu có
-                if (env.GOOGLE_SHEET_URL) {
+                // Đồng bộ sang Google Sheet
+                const activeSyncSheetUrl = getGoogleSheetUrl(env);
+                if (activeSyncSheetUrl) {
                     try {
-                        const syncUrl = `${env.GOOGLE_SHEET_URL}?action=activate&key=${encodeURIComponent(rawKey)}&deviceId=${encodeURIComponent(deviceId)}&deviceName=${encodeURIComponent(deviceName)}`;
+                        const syncUrl = `${activeSyncSheetUrl}?action=activate&key=${encodeURIComponent(rawKey)}&deviceId=${encodeURIComponent(deviceId)}&deviceName=${encodeURIComponent(deviceName)}`;
                         ctx.waitUntil(fetch(syncUrl));
                     } catch (e) {}
                 }
@@ -640,10 +649,11 @@ export default {
                 });
             }
 
-            // 3. Fallback qua Google Sheet nếu có
-            if (env.GOOGLE_SHEET_URL) {
+            // 3. Fallback qua Google Sheet
+            const restoreSheetUrl = getGoogleSheetUrl(env);
+            if (restoreSheetUrl) {
                 try {
-                    const sheetRes = await fetch(`${env.GOOGLE_SHEET_URL}?action=restore&deviceId=${encodeURIComponent(deviceId)}`);
+                    const sheetRes = await fetch(`${restoreSheetUrl}?action=restore&deviceId=${encodeURIComponent(deviceId)}`);
                     const sheetData = await sheetRes.json();
                     if (sheetData && sheetData.success) {
                         return jsonResponse(sheetData);

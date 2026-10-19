@@ -27,9 +27,8 @@ data class ActivationResult(
 
 object OnlineLicenseService {
 
-    // URL mặc định của hệ thống Google Apps Script Web App
-    // Quản trị viên có thể đổi URL này trong mục Cài đặt -> Bản quyền
-    const val DEFAULT_SERVER_URL = "https://script.google.com/macros/s/AKfycbycE-sample-vandinh-license/exec"
+    // URL mặc định của hệ thống Google Apps Script Web App (Production)
+    const val DEFAULT_SERVER_URL = "https://script.google.com/macros/s/AKfycbzdM_ZRNwnVX5UmuZ61N0dZhkzKdnrpVvLIVgSb9W2W8h6HukXexENAtPzjVy0-u3zBIg/exec"
 
     // Gateway Cloudflare Worker mặc định hỗ trợ payOS và lưu trữ key trực tiếp
     const val DEFAULT_CLOUDFLARE_GATEWAY_URL = "https://wclon-payment.mwuan216.workers.dev"
@@ -38,12 +37,12 @@ object OnlineLicenseService {
     private const val KEY_CUSTOM_SERVER_URL = "key_custom_server_url"
 
     /**
-     * Lấy URL máy chủ xác thực hiện tại (Ưu tiên URL tùy chỉnh do người dùng nhập trong Cài Đặt)
+     * Lấy URL máy chủ xác thực hiện tại (Mặc định dùng Web App Google Sheet của bạn)
      */
     fun getServerUrl(context: Context): String {
         val prefs = context.applicationContext.getSharedPreferences(PREF_SERVER, Context.MODE_PRIVATE)
         val customUrl = prefs.getString(KEY_CUSTOM_SERVER_URL, null)
-        return if (!customUrl.isNullOrBlank()) customUrl.trim() else ""
+        return if (!customUrl.isNullOrBlank()) customUrl.trim() else DEFAULT_SERVER_URL
     }
 
     /**
