@@ -36,8 +36,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.foundation.BorderStroke
+import com.spacare.manager.core.license.DeviceIdManager
 import com.spacare.manager.core.license.LicenseManager
+import com.spacare.manager.core.license.OnlineLicenseService
+import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -98,10 +101,16 @@ fun StoreSettingsScreen(
     // State quản lý bản quyền & key kích hoạt
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+    val coroutineScope = rememberCoroutineScope()
     val licenseManager = remember { LicenseManager.getInstance(context) }
     var licenseStatus by remember { mutableStateOf(licenseManager.getLicenseStatus()) }
     var inputLicenseKey by remember { mutableStateOf("") }
     var licenseError by remember { mutableStateOf<String?>(null) }
+    var isActivatingLicense by remember { mutableStateOf(false) }
+    var showServerUrlDialog by remember { mutableStateOf(false) }
+    var inputServerUrl by remember { mutableStateOf(OnlineLicenseService.getServerUrl(context)) }
+    var isTestingConnection by remember { mutableStateOf(false) }
+    var testResultMsg by remember { mutableStateOf<String?>(null) }
     var showConfirmRealUsageDialog by remember { mutableStateOf(false) }
     var showConfirmImportDialog by remember { mutableStateOf(false) }
     var pendingImportJson by remember { mutableStateOf<String?>(null) }
@@ -783,8 +792,8 @@ fun StoreSettingsScreen(
                                     ) {
                                         Text(
                                             text = when {
-                                                licenseStatus.isActivated -> "ĐÃ KÍCH HOẠT PRO"
-                                                licenseStatus.isExpired -> "HẾT HẠN DÙNG THỬ"
+                                                licenseStatus.isActivated -> if (licenseStatus.isLifetime) "ĐÃ KÍCH HOẠT PRO" else "PRO CÓ THỜI HẠN"
+                                                licenseStatus.isExpired -> "HẾT HẠN SỬ DỤNG"
                                                 else -> "DÙNG THỬ 15 NGÀY"
                                             },
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -822,6 +831,14 @@ fun StoreSettingsScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
+                                        Text("Gói dịch vụ:", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
+                                        Text(licenseStatus.planName, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = CharcoalTextPrimary)
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
                                         Text("Key đang dùng:", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
                                         Text(licenseStatus.activatedKey, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = SageGreenPrimary)
                                     }
@@ -833,13 +850,23 @@ fun StoreSettingsScreen(
                                         Text("Thời điểm kích hoạt:", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
                                         Text(licenseStatus.activatedDate, style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
                                     }
+                                    if (licenseStatus.expiresDate.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Hạn sử dụng:", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary)
+                                            Text(licenseStatus.expiresDate, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = if (licenseStatus.isLifetime) SuccessGreen else SpaGoldPrimary)
+                                        }
+                                    }
 
                                     Spacer(modifier = Modifier.height(14.dp))
                                     OutlinedButton(
                                         onClick = {
                                             licenseManager.deactivateLicense()
                                             licenseStatus = licenseManager.getLicenseStatus()
-                                            Toast.makeText(context, "Đã hủy kích hoạt bản quyền", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Đã hủy kích hoạt bản quyền trên máy này", Toast.LENGTH_SHORT).show()
                                         },
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
@@ -854,7 +881,7 @@ fun StoreSettingsScreen(
                                             licenseError = null
                                         },
                                         label = { Text("Nhập Key kích hoạt bản quyền") },
-                                        placeholder = { Text("Nhập mã kích hoạt bản quyền...") },
+                                        placeholder = { Text("VD: VD-ABCD-1234-EFGH") },
                                         leadingIcon = { Icon(Icons.Default.Key, contentDescription = null, tint = SageGreenPrimary) },
                                         trailingIcon = {
                                             IconButton(onClick = {
@@ -872,10 +899,11 @@ fun StoreSettingsScreen(
                                             if (licenseError != null) {
                                                 Text(licenseError!!, color = AllergyAlertRed)
                                             } else {
-                                                Text("Nhập mã kích hoạt do đơn vị phát triển cung cấp")
+                                                Text("Mỗi Key kích hoạt dùng được cho 1 thiết bị duy nhất")
                                             }
                                         },
                                         singleLine = true,
+                                        enabled = !isActivatingLicense,
                                         modifier = Modifier.fillMaxWidth()
                                     )
 
@@ -887,24 +915,234 @@ fun StoreSettingsScreen(
                                                 licenseError = "Vui lòng nhập Key bản quyền."
                                                 return@Button
                                             }
-                                            val ok = licenseManager.activateLicense(inputLicenseKey)
-                                            if (ok) {
-                                                licenseStatus = licenseManager.getLicenseStatus()
-                                                inputLicenseKey = ""
-                                                Toast.makeText(context, "Kích hoạt bản quyền PRO trọn đời thành công!", Toast.LENGTH_LONG).show()
-                                            } else {
-                                                licenseError = "Key kích hoạt không hợp lệ. Vui lòng kiểm tra lại."
+                                            coroutineScope.launch {
+                                                isActivatingLicense = true
+                                                licenseError = null
+                                                val res = licenseManager.activateLicenseOnline(inputLicenseKey)
+                                                isActivatingLicense = false
+                                                if (res.success) {
+                                                    licenseStatus = licenseManager.getLicenseStatus()
+                                                    inputLicenseKey = ""
+                                                    Toast.makeText(context, res.message, Toast.LENGTH_LONG).show()
+                                                } else {
+                                                    licenseError = res.message
+                                                }
                                             }
                                         },
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = SageGreenPrimary,
                                             contentColor = Color.White
                                         ),
+                                        enabled = !isActivatingLicense,
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Kích Hoạt Bản Quyền", color = Color.White, fontWeight = FontWeight.Bold)
+                                        if (isActivatingLicense) {
+                                            CircularProgressIndicator(
+                                                color = Color.White,
+                                                modifier = Modifier.size(18.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Đang Kiểm Tra & Khóa Key...", color = Color.White)
+                                        } else {
+                                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Kích Hoạt Bản Quyền Online", color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. Thẻ Thông Tin Thiết Bị Hiện Tại (Device ID)
+                    item {
+                        val currentDeviceId = remember { DeviceIdManager.getDeviceId(context) }
+                        val currentDeviceName = remember { DeviceIdManager.getDeviceName() }
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(18.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PhoneAndroid,
+                                        contentDescription = null,
+                                        tint = SageGreenPrimary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Text(
+                                        text = "Thiết Bị Của Bạn",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CharcoalTextPrimary
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = WarmBeigeBackground,
+                                    border = BorderStroke(1.dp, WarmBeigeBorder)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "Dòng máy: $currentDeviceName",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = CharcoalTextSecondary
+                                            )
+                                            Spacer(modifier = Modifier.height(3.dp))
+                                            Text(
+                                                text = "Mã thiết bị (Device ID):",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontSize = 11.sp,
+                                                color = CharcoalTextMuted
+                                            )
+                                            Text(
+                                                text = currentDeviceId,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = SageGreenPrimary
+                                            )
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                clipboardManager.setText(AnnotatedString(currentDeviceId))
+                                                Toast.makeText(context, "Đã sao chép mã máy: $currentDeviceId", Toast.LENGTH_SHORT).show()
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.ContentCopy,
+                                                contentDescription = "Sao chép",
+                                                tint = SageGreenPrimary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Mỗi Key kích hoạt được liên kết với duy nhất một mã máy này. Cung cấp mã này cho người bán để được hỗ trợ hoặc cấp quyền đổi máy.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 12.sp,
+                                    color = CharcoalTextSecondary
+                                )
+                            }
+                        }
+                    }
+
+                    // 3. Thẻ Quản Lý Máy Chủ Xác Thực Key Online
+                    item {
+                        val currentServerUrl = OnlineLicenseService.getServerUrl(context)
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(containerColor = WarmBeigeSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(18.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudQueue,
+                                            contentDescription = null,
+                                            tint = SageGreenPrimary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Text(
+                                            text = "Máy Chủ Quản Lý Key",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CharcoalTextPrimary
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = {
+                                            inputServerUrl = OnlineLicenseService.getServerUrl(context)
+                                            testResultMsg = null
+                                            showServerUrlDialog = true
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Chỉnh sửa URL",
+                                            tint = SageGreenPrimary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = if (currentServerUrl.isNotBlank()) currentServerUrl else "Chưa cấu hình URL Google Apps Script Web App",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (currentServerUrl.isNotBlank()) SageGreenPrimary else AllergyAlertRed,
+                                    maxLines = 2
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            inputServerUrl = OnlineLicenseService.getServerUrl(context)
+                                            testResultMsg = null
+                                            showServerUrlDialog = true
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Cài Đặt URL")
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            if (currentServerUrl.isBlank()) {
+                                                Toast.makeText(context, "Vui lòng cài đặt URL Server trước!", Toast.LENGTH_SHORT).show()
+                                                return@Button
+                                            }
+                                            coroutineScope.launch {
+                                                isTestingConnection = true
+                                                val (ok, msg) = OnlineLicenseService.testServerConnection(currentServerUrl)
+                                                isTestingConnection = false
+                                                Toast.makeText(context, if (ok) "Kết nối máy chủ OK: $msg" else "Lỗi kết nối: $msg", Toast.LENGTH_LONG).show()
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
+                                        enabled = !isTestingConnection,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        if (isTestingConnection) {
+                                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                        } else {
+                                            Text("Kiểm Tra Kết Nối", color = Color.White)
+                                        }
                                     }
                                 }
                             }
@@ -1534,6 +1772,106 @@ fun StoreSettingsScreen(
                     pendingImportJson = null
                 }) {
                     Text("Hủy")
+                }
+            },
+            containerColor = WarmBeigeSurface
+        )
+    }
+
+    if (showServerUrlDialog) {
+        AlertDialog(
+            onDismissRequest = { showServerUrlDialog = false },
+            title = {
+                Text(
+                    text = "Cấu Hình URL Quản Lý Key Online",
+                    fontWeight = FontWeight.Bold,
+                    color = CharcoalTextPrimary
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Dán URL Web App của Google Apps Script (kết thúc bằng /exec) để kết nối hệ thống quản lý key của bạn:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = CharcoalTextSecondary
+                    )
+
+                    OutlinedTextField(
+                        value = inputServerUrl,
+                        onValueChange = { inputServerUrl = it },
+                        label = { Text("URL Google Apps Script Web App") },
+                        placeholder = { Text("https://script.google.com/macros/s/.../exec") },
+                        singleLine = false,
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val clip = clipboardManager.getText()?.text
+                                if (!clip.isNullOrBlank()) {
+                                    inputServerUrl = clip.trim()
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Dán Clipboard", fontSize = 12.sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                if (inputServerUrl.isBlank()) {
+                                    Toast.makeText(context, "Vui lòng nhập URL!", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                coroutineScope.launch {
+                                    isTestingConnection = true
+                                    val (ok, msg) = OnlineLicenseService.testServerConnection(inputServerUrl.trim())
+                                    isTestingConnection = false
+                                    testResultMsg = if (ok) "✓ Kết nối thành công: $msg" else "✗ Lỗi: $msg"
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
+                            enabled = !isTestingConnection,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            if (isTestingConnection) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text("Kiểm Tra", fontSize = 12.sp, color = Color.White)
+                            }
+                        }
+                    }
+
+                    if (testResultMsg != null) {
+                        Text(
+                            text = testResultMsg!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (testResultMsg!!.startsWith("✓")) SuccessGreen else AllergyAlertRed,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        OnlineLicenseService.saveServerUrl(context, inputServerUrl)
+                        showServerUrlDialog = false
+                        Toast.makeText(context, "Đã lưu cấu hình máy chủ quản lý key", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary, contentColor = Color.White)
+                ) {
+                    Text("Lưu URL", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showServerUrlDialog = false }) {
+                    Text("Đóng")
                 }
             },
             containerColor = WarmBeigeSurface

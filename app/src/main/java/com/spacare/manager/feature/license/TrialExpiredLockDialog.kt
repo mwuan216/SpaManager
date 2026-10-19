@@ -1,12 +1,14 @@
 package com.spacare.manager.feature.license
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
@@ -18,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -25,7 +28,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.spacare.manager.core.designsystem.theme.*
+import com.spacare.manager.core.license.DeviceIdManager
 import com.spacare.manager.core.license.LicenseManager
+import kotlinx.coroutines.launch
 
 @Composable
 fun TrialExpiredLockDialog(
@@ -34,11 +39,17 @@ fun TrialExpiredLockDialog(
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+    val coroutineScope = rememberCoroutineScope()
+
     var inputKey by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isActivating by remember { mutableStateOf(false) }
+
+    val deviceId = remember { DeviceIdManager.getDeviceId(context) }
+    val deviceName = remember { DeviceIdManager.getDeviceName() }
 
     Dialog(
-        onDismissRequest = { /* Không cho phép tắt dialog khi đã hết hạn dùng thử */ },
+        onDismissRequest = { /* Không cho phép tắt dialog khi đã hết hạn dùng thử / bản quyền */ },
         properties = DialogProperties(
             dismissOnBackPress = false,
             dismissOnClickOutside = false,
@@ -78,7 +89,7 @@ fun TrialExpiredLockDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Hết Hạn Dùng Thử 15 Ngày",
+                    text = "Bản Quyền Đã Hết Hạn",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = CharcoalTextPrimary,
@@ -88,14 +99,63 @@ fun TrialExpiredLockDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Thời gian trải nghiệm miễn phí 15 ngày của Văn Định Skinlab đã kết thúc. Vui lòng nhập Key kích hoạt bản quyền để tiếp tục sử dụng phần mềm quản lý Spa.",
+                    text = "Thời gian dùng thử hoặc gói bản quyền của Văn Định Skinlab đã kết thúc. Vui lòng nhập Key kích hoạt để tiếp tục sử dụng phần mềm trên thiết bị này.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = CharcoalTextSecondary,
                     textAlign = TextAlign.Center,
                     lineHeight = 20.sp
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Thẻ hiển thị Device ID để gửi cho người bán key
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = WarmBeigeBackground,
+                    border = BorderStroke(1.dp, WarmBeigeBorder)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Mã thiết bị của bạn ($deviceName):",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.sp,
+                                color = CharcoalTextMuted
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = deviceId,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = SageGreenPrimary,
+                                fontSize = 13.sp
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                clipboardManager.setText(AnnotatedString(deviceId))
+                                Toast.makeText(context, "Đã sao chép mã thiết bị: $deviceId", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Sao chép mã máy",
+                                tint = SageGreenPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Ô nhập Key
                 OutlinedTextField(
@@ -105,7 +165,7 @@ fun TrialExpiredLockDialog(
                         errorMessage = null
                     },
                     label = { Text("Nhập Key kích hoạt bản quyền") },
-                    placeholder = { Text("Nhập mã bản quyền...") },
+                    placeholder = { Text("VD: VD-ABCD-1234-EFGH") },
                     leadingIcon = {
                         Icon(Icons.Default.Key, contentDescription = null, tint = SageGreenPrimary)
                     },
@@ -125,10 +185,11 @@ fun TrialExpiredLockDialog(
                         if (errorMessage != null) {
                             Text(errorMessage!!, color = AllergyAlertRed)
                         } else {
-                            Text("Nhập mã kích hoạt do đơn vị phát triển cung cấp")
+                            Text("Mỗi Key kích hoạt dùng được cho 1 thiết bị duy nhất")
                         }
                     },
                     singleLine = true,
+                    enabled = !isActivating,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -142,26 +203,43 @@ fun TrialExpiredLockDialog(
                             return@Button
                         }
 
-                        val success = licenseManager.activateLicense(inputKey)
-                        if (success) {
-                            Toast.makeText(context, "Kích hoạt bản quyền trọn đời thành công!", Toast.LENGTH_LONG).show()
-                            onActivatedSuccess()
-                        } else {
-                            errorMessage = "Key kích hoạt không đúng hoặc không hợp lệ. Vui lòng kiểm tra lại."
+                        coroutineScope.launch {
+                            isActivating = true
+                            errorMessage = null
+                            val result = licenseManager.activateLicenseOnline(inputKey)
+                            isActivating = false
+
+                            if (result.success) {
+                                Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+                                onActivatedSuccess()
+                            } else {
+                                errorMessage = result.message
+                            }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = SageGreenPrimary,
                         contentColor = Color.White
                     ),
+                    enabled = !isActivating,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Kích Hoạt Ngay", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    if (isActivating) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Đang Kiểm Tra & Khóa Key...", color = Color.White, fontSize = 14.sp)
+                    } else {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Kích Hoạt Ngay", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -177,4 +255,3 @@ fun TrialExpiredLockDialog(
         }
     }
 }
-
