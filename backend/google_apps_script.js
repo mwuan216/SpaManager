@@ -316,9 +316,17 @@ function handleApiRequest(e) {
       });
     }
 
+    if (action === "restore") {
+      const deviceId = (params.deviceId || "").trim();
+      if (!deviceId) {
+        return createJsonResponse({ success: false, message: "Thiếu Device ID." });
+      }
+      return createJsonResponse(processLicenseRestore(deviceId));
+    }
+
     return createJsonResponse({
       success: false,
-      message: "Action không hợp lệ. Hỗ trợ: 'ping', 'activate', 'verify', 'add_key'."
+      message: "Action không hợp lệ. Hỗ trợ: 'ping', 'activate', 'verify', 'add_key', 'restore'."
     });
 
   } catch (err) {
@@ -509,4 +517,72 @@ function checkIfExpired(dateStr) {
   } catch (e) {
     return false;
   }
+}
+
+/**
+ * Khôi phục bản quyền tự động theo Device ID khi người dùng cài lại app hoặc xóa dữ liệu
+ */
+function processLicenseRestore(deviceId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    setupSheet();
+    sheet = ss.getSheetByName(SHEET_NAME);
+  }
+
+  const data = sheet.getDataRange().getValues();
+  let matchedRow = -1;
+  let matchedData = null;
+
+  // Quét từ dưới lên trên để lấy bản quyền mới nhất nếu có nhiều dòng
+  for (let i = data.length - 1; i >= 1; i--) {
+    const rowDeviceId = (data[i][COL_DEVICE_ID - 1] || "").toString().trim();
+    const rowStatus = (data[i][COL_STATUS - 1] || "").toString().trim().toUpperCase();
+
+    if (rowDeviceId === deviceId && rowStatus === "ACTIVATED") {
+      matchedRow = i + 1;
+      matchedData = data[i];
+      break;
+    }
+  }
+
+  if (matchedRow === -1) {
+    return {
+      success: false,
+      restored: false,
+      message: "Không tìm thấy thông tin bản quyền đã kích hoạt cho thiết bị này."
+    };
+  }
+
+  const key = (matchedData[COL_KEY - 1] || "").toString().trim().toUpperCase();
+  const plan = (matchedData[COL_PLAN - 1] || "LIFETIME").toString().trim().toUpperCase();
+  const activatedAt = (matchedData[COL_ACTIVATED_AT - 1] || "").toString().trim();
+  const expiresAt = (matchedData[COL_EXPIRES_AT - 1] || "").toString().trim();
+  const isLifetime = (plan === "LIFETIME" || plan === "TRỌN ĐỜI" || plan === "PRO");
+
+  // Kiểm tra hạn sử dụng nếu không phải trọn đời
+  if (!isLifetime && expiresAt) {
+    const isExpired = checkIfExpired(expiresAt);
+    if (isExpired) {
+      sheet.getRange(matchedRow, COL_STATUS).setValue("EXPIRED");
+      return {
+        success: false,
+        restored: false,
+        isExpired: true,
+        message: "Gói bản quyền của thiết bị này đã hết hạn sử dụng vào ngày " + expiresAt + "."
+      };
+    }
+  }
+
+  return {
+    success: true,
+    restored: true,
+    message: "Khôi phục bản quyền thành công từ máy chủ!",
+    key: key,
+    plan: plan,
+    isLifetime: isLifetime,
+    activatedAt: activatedAt,
+    expiresAt: expiresAt || (isLifetime ? "Vĩnh viễn" : ""),
+    deviceId: deviceId
+  };
 }

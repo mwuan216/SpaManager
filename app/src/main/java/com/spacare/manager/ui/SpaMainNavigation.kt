@@ -57,6 +57,21 @@ fun SpaMainApp(
         licenseStatus = licenseManager.getLicenseStatus()
     }
 
+    // Tự động khôi phục bản quyền từ đám mây khi mở app (trường hợp cài lại app hoặc xóa dữ liệu)
+    LaunchedEffect(Unit) {
+        if (!licenseStatus.isActivated) {
+            val restoreResult = licenseManager.restoreLicenseOnline()
+            if (restoreResult.success) {
+                licenseStatus = licenseManager.getLicenseStatus()
+                Toast.makeText(
+                    context,
+                    "Chào mừng trở lại! Đã tự động khôi phục gói bản quyền của bạn.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
     val isRealUsageMode by repository.isRealUsageMode.collectAsState(initial = false)
     val clients by repository.clients.collectAsState(initial = emptyList())
     val selectedClientId by repository.selectedClientId.collectAsState(initial = null)

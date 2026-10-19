@@ -382,7 +382,59 @@ export default {
         }
 
         // =========================================================================
-        // 3. TRANG CHỦ / KIỂM TRA TRẠNG THÁI
+        // 3. ENDPOINT: /restore-license (Khôi phục bản quyền theo mã thiết bị)
+        // =========================================================================
+        if (path === "/restore-license" || path === "/api/restore-license") {
+            const deviceId = (url.searchParams.get("deviceId") || "").trim().toUpperCase();
+            if (!deviceId || deviceId.length < 4) {
+                return jsonResponse({
+                    success: false,
+                    error: "Mã thiết bị (deviceId) không hợp lệ."
+                }, 400);
+            }
+
+            // 1. Kiểm tra Cloudflare KV
+            if (env.WCLONE_KV) {
+                try {
+                    const saved = await env.WCLONE_KV.get(`license_${deviceId}`, { type: "json" });
+                    if (saved && saved.key) {
+                        return jsonResponse({
+                            success: true,
+                            paid: true,
+                            restored: true,
+                            tier: saved.tier,
+                            plan: saved.plan || "LIFETIME",
+                            key: saved.key,
+                            message: "Khôi phục bản quyền thành công từ đám mây!"
+                        });
+                    }
+                } catch (e) {}
+            }
+
+            // 2. Kiểm tra bộ nhớ đệm
+            const cached = paidLicensesCache.get(deviceId);
+            if (cached && cached.key) {
+                return jsonResponse({
+                    success: true,
+                    paid: true,
+                    restored: true,
+                    tier: cached.tier,
+                    plan: cached.plan || "LIFETIME",
+                    key: cached.key,
+                    message: "Khôi phục bản quyền thành công từ máy chủ!"
+                });
+            }
+
+            return jsonResponse({
+                success: false,
+                paid: false,
+                restored: false,
+                message: "Không tìm thấy thông tin bản quyền đã mua cho thiết bị này."
+            });
+        }
+
+        // =========================================================================
+        // 4. TRANG CHỦ / KIỂM TRA TRẠNG THÁI
         // =========================================================================
         return jsonResponse({
             service: "Văn Định Skinlab & Sổ Thu Chi & WClone Payment Gateway Worker",

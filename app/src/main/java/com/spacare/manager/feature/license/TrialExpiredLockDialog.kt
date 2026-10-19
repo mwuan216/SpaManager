@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -242,7 +243,48 @@ fun TrialExpiredLockDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                var isRestoring by remember { mutableStateOf(false) }
+
+                // Nút khôi phục bản quyền đã mua cho thiết bị này
+                OutlinedButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            isRestoring = true
+                            errorMessage = null
+                            val res = licenseManager.restoreLicenseOnline()
+                            isRestoring = false
+                            if (res.success) {
+                                Toast.makeText(context, "Khôi phục thành công gói ${res.plan}!", Toast.LENGTH_LONG).show()
+                                onActivatedSuccess()
+                            } else {
+                                errorMessage = res.message
+                            }
+                        }
+                    },
+                    enabled = !isActivating && !isRestoring,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isRestoring) {
+                        CircularProgressIndicator(
+                            color = SageGreenPrimary,
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Đang Kiểm Tra Bản Quyền Cũ...", color = SageGreenPrimary, fontSize = 13.sp)
+                    } else {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp), tint = SageGreenPrimary)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Khôi Phục Bản Quyền Đã Mua", color = SageGreenPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
                     text = "Liên hệ mua bản quyền / Hỗ trợ: Văn Định Skinlab",

@@ -12,6 +12,7 @@ import java.net.URL
 data class ActivationResult(
     val success: Boolean,
     val message: String,
+    val key: String = "",
     val plan: String = "LIFETIME",
     val isLifetime: Boolean = true,
     val activatedAt: String = "",
@@ -140,6 +141,82 @@ object OnlineLicenseService {
     }
 
     /**
+     * Khôi phục bản quyền tự động cho thiết bị này khi cài lại app hoặc xóa dữ liệu
+     */
+    suspend fun restoreLicense(context: Context): ActivationResult = withContext(Dispatchers.IO) {
+        val deviceId = DeviceIdManager.getDeviceId(context)
+
+        // 1. Thử khôi phục từ Google Apps Script Web App
+        val serverUrl = getServerUrl(context)
+        if (serverUrl.isNotBlank()) {
+            try {
+                val restoreUrl = Uri.parse(serverUrl).buildUpon()
+                    .appendQueryParameter("action", "restore")
+                    .appendQueryParameter("deviceId", deviceId)
+                    .build()
+                    .toString()
+
+                val responseJsonStr = executeHttpRequestWithRedirect(restoreUrl)
+                val json = JSONObject(responseJsonStr)
+                val success = json.optBoolean("success", false)
+                val isRestored = json.optBoolean("restored", false)
+
+                if (success && isRestored) {
+                    val key = json.optString("key", "")
+                    val plan = json.optString("plan", "LIFETIME")
+                    val isLifetime = json.optBoolean("isLifetime", plan.equals("LIFETIME", ignoreCase = true))
+                    val activatedAt = json.optString("activatedAt", "")
+                    val expiresAt = json.optString("expiresAt", if (isLifetime) "Vĩnh viễn" else "")
+
+                    return@withContext ActivationResult(
+                        success = true,
+                        message = "Khôi phục bản quyền thành công từ Google Sheets!",
+                        plan = plan,
+                        isLifetime = isLifetime,
+                        activatedAt = activatedAt,
+                        expiresAt = expiresAt,
+                        deviceId = deviceId
+                    )
+                }
+            } catch (e: Exception) {
+                // Tiếp tục thử Cloudflare Worker
+            }
+        }
+
+        // 2. Thử khôi phục từ Cloudflare Worker payOS
+        try {
+            val workerUrl = "https://wclon-payment.mwuan216.workers.dev/restore-license?deviceId=$deviceId"
+            val responseJsonStr = executeHttpRequestWithRedirect(workerUrl)
+            val json = JSONObject(responseJsonStr)
+            val success = json.optBoolean("success", false)
+            val isRestored = json.optBoolean("restored", false)
+
+            if (success && isRestored) {
+                val key = json.optString("key", "")
+                val plan = json.optString("plan", "LIFETIME")
+                val isLifetime = plan.equals("LIFETIME", ignoreCase = true) || plan.equals("spa_life", ignoreCase = true)
+
+                return@withContext ActivationResult(
+                    success = true,
+                    message = "Khôi phục bản quyền thành công từ đám mây!",
+                    plan = plan,
+                    isLifetime = isLifetime,
+                    activatedAt = "Đã lưu",
+                    expiresAt = if (isLifetime) "Vĩnh viễn" else "",
+                    deviceId = deviceId
+                )
+            }
+        } catch (e: Exception) {
+            // Không khôi phục được từ worker
+        }
+
+        ActivationResult(
+            success = false,
+            message = "Không tìm thấy thông tin bản quyền đã kích hoạt cho thiết bị này. Vui lòng nhập mã Key để kích hoạt."
+        )
+    }
+
+    /**
      * Kiểm tra kết nối tới Server Google Apps Script (Ping)
      */
     suspend fun testServerConnection(url: String): Pair<Boolean, String> = withContext(Dispatchers.IO) {
@@ -211,6 +288,7 @@ object OnlineLicenseService {
             val json = JSONObject(jsonStr)
             val success = json.optBoolean("success", false)
             val message = json.optString("message", if (success) "Thao tác thành công" else "Kích hoạt thất bại")
+            val key = json.optString("key", "")
             val plan = json.optString("plan", "LIFETIME")
             val isLifetime = json.optBoolean("isLifetime", plan.equals("LIFETIME", ignoreCase = true))
             val activatedAt = json.optString("activatedAt", "")
@@ -221,6 +299,7 @@ object OnlineLicenseService {
             ActivationResult(
                 success = success,
                 message = message,
+                key = key,
                 plan = plan,
                 isLifetime = isLifetime,
                 activatedAt = activatedAt,

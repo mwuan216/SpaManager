@@ -200,6 +200,36 @@ class LicenseManager private constructor(private val context: Context) {
     }
 
     /**
+     * Khôi phục bản quyền tự động từ máy chủ theo mã thiết bị (Device ID)
+     * Dùng khi người dùng xóa app cài lại hoặc xóa dữ liệu ứng dụng
+     */
+    suspend fun restoreLicenseOnline(): ActivationResult {
+        val result = OnlineLicenseService.restoreLicense(context)
+
+        if (result.success) {
+            val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+            val activatedDateStr = result.activatedAt.ifBlank { sdf.format(Date()) }
+            val expiresDateStr = result.expiresAt.ifBlank { if (result.isLifetime) "Vĩnh viễn" else "" }
+
+            val expiresMs = parseExpiresDateToMs(expiresDateStr, result.plan, result.isLifetime)
+            val planTitle = formatPlanTitle(result.plan, result.isLifetime)
+
+            prefs.edit()
+                .putBoolean(KEY_IS_ACTIVATED, true)
+                .putString(KEY_ACTIVATED_KEY, result.key.ifBlank { "ĐÃ KHÔI PHỤC BẢN QUYỀN" })
+                .putString(KEY_ACTIVATED_DATE, activatedDateStr)
+                .putString(KEY_EXPIRES_DATE, expiresDateStr)
+                .putLong(KEY_EXPIRES_MS, expiresMs)
+                .putBoolean(KEY_IS_LIFETIME, result.isLifetime)
+                .putString(KEY_PLAN_NAME, planTitle)
+                .putString(KEY_DEVICE_ID, DeviceIdManager.getDeviceId(context))
+                .apply()
+        }
+
+        return result
+    }
+
+    /**
      * Xác thực và kích hoạt key bản quyền (hỗ trợ master key offline)
      */
     fun activateLicense(rawKey: String): Boolean {

@@ -953,6 +953,39 @@ fun StoreSettingsScreen(
                                             Text("Kích Hoạt Bản Quyền Online", color = Color.White, fontWeight = FontWeight.Bold)
                                         }
                                     }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    var isRestoringLicense by remember { mutableStateOf(false) }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            coroutineScope.launch {
+                                                isRestoringLicense = true
+                                                licenseError = null
+                                                val res = licenseManager.restoreLicenseOnline()
+                                                isRestoringLicense = false
+                                                if (res.success) {
+                                                    licenseStatus = licenseManager.getLicenseStatus()
+                                                    Toast.makeText(context, "Khôi phục thành công gói ${res.plan} cho thiết bị này!", Toast.LENGTH_LONG).show()
+                                                } else {
+                                                    licenseError = res.message
+                                                }
+                                            }
+                                        },
+                                        enabled = !isActivatingLicense && !isRestoringLicense,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        if (isRestoringLicense) {
+                                            CircularProgressIndicator(color = SageGreenPrimary, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Đang Kiểm Tra Bản Quyền...", color = SageGreenPrimary)
+                                        } else {
+                                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = SageGreenPrimary)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Khôi Phục Bản Quyền Thiết Bị", color = SageGreenPrimary)
+                                        }
+                                    }
                                 }
                             }
                         }
