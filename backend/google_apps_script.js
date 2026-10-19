@@ -384,32 +384,38 @@ function processKeyActivation(key, deviceId, deviceName, isActivateAction) {
     };
   }
 
-  const isLifetime = (plan === "LIFETIME" || plan === "TRỌN ĐỜI" || plan === "PRO");
+  const isLifetime = isPlanLifetime(plan);
 
   // 3. Key ĐÃ ĐƯỢC KÍCH HOẠT TRƯỚC ĐÓ
   if (status === "ACTIVATED") {
-    // A. Nếu thiết bị gửi lên TRÙNG với thiết bị đã đăng ký
+    // A. Nếu thiết bị gửi lên TRÙNG với thiết bị đã đăng ký (Kích hoạt lại / Khôi phục)
     if (linkedDeviceId === deviceId) {
-      // Kiểm tra ngày hết hạn
-      if (!isLifetime && expiresAt) {
-        const isExpired = checkIfExpired(expiresAt);
-        if (isExpired) {
-          sheet.getRange(foundRow, COL_STATUS).setValue("EXPIRED");
-          return {
-            success: false,
-            isExpired: true,
-            message: "Key bản quyền của bạn đã hết hạn sử dụng vào ngày " + expiresAt + ". Vui lòng gia hạn để tiếp tục."
-          };
-        }
+      const remain = calculateRemainingTime(expiresAt, isLifetime);
+      if (remain.isExpired) {
+        sheet.getRange(foundRow, COL_STATUS).setValue("EXPIRED");
+        return {
+          success: false,
+          isExpired: true,
+          message: "Key bản quyền của bạn đã hết hạn sử dụng vào ngày " + expiresAt + ". Vui lòng mua hoặc gia hạn Key mới."
+        };
       }
+
+      const msg = isLifetime
+        ? "Xác thực bản quyền Trọn Đời thành công trên thiết bị này!"
+        : "Xác thực gói " + plan + " thành công! Còn " + remain.daysRemaining + " ngày sử dụng (đến " + expiresAt + ").";
 
       return {
         success: true,
-        message: "Xác thực bản quyền thành công!",
+        restored: true,
+        message: msg,
+        key: key,
         plan: plan,
         isLifetime: isLifetime,
         activatedAt: activatedAt,
         expiresAt: expiresAt || (isLifetime ? "Vĩnh viễn" : ""),
+        expiresMs: remain.expiresMs,
+        daysRemaining: remain.daysRemaining,
+        hoursRemaining: remain.hoursRemaining,
         deviceId: deviceId
       };
     }
@@ -423,16 +429,18 @@ function processKeyActivation(key, deviceId, deviceName, isActivateAction) {
     };
   }
 
-  // 4. Key CHƯA KÍCH HOẠT (AVAILABLE)
+  // 4. Key CHƯA KÍCH HOẠT (AVAILABLE) - Lần kích hoạt đầu tiên
   if (status === "AVAILABLE") {
     const now = new Date();
     const nowStr = Utilities.formatDate(now, "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
 
     // Tính ngày hết hạn theo loại gói
     let expiresStr = "Vĩnh viễn";
+    let remain = { isExpired: false, daysRemaining: 0, hoursRemaining: 0, expiresMs: 0 };
     if (!isLifetime) {
       const expDate = calculateExpirationDate(now, plan);
       expiresStr = Utilities.formatDate(expDate, "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
+      remain = calculateRemainingTime(expiresStr, false);
     }
 
     // Cập nhật dòng trên sheet: Khóa ngay thiết bị này vào Key
@@ -442,15 +450,21 @@ function processKeyActivation(key, deviceId, deviceName, isActivateAction) {
     sheet.getRange(foundRow, COL_ACTIVATED_AT).setValue(nowStr);
     sheet.getRange(foundRow, COL_EXPIRES_AT).setValue(expiresStr);
 
+    const msg = isLifetime
+      ? "Kích hoạt bản quyền trọn đời (PRO) thành công trên thiết bị này!"
+      : "Kích hoạt gói " + plan + " thành công! Còn " + remain.daysRemaining + " ngày sử dụng (đến " + expiresStr + ").";
+
     return {
       success: true,
-      message: isLifetime
-        ? "Kích hoạt bản quyền trọn đời (PRO) thành công trên thiết bị này!"
-        : "Kích hoạt bản quyền thành công! Hạn dùng đến: " + expiresStr,
+      message: msg,
+      key: key,
       plan: plan,
       isLifetime: isLifetime,
       activatedAt: nowStr,
       expiresAt: expiresStr,
+      expiresMs: remain.expiresMs,
+      daysRemaining: remain.daysRemaining,
+      hoursRemaining: remain.hoursRemaining,
       deviceId: deviceId
     };
   }
@@ -463,34 +477,72 @@ function processKeyActivation(key, deviceId, deviceName, isActivateAction) {
 }
 
 /**
- * Tính ngày hết hạn dựa theo mã gói
+ * Kiểm tra xem loại gói có phải là Trọn Đời (Lifetime/Pro) hay không
+ */
+function isPlanLifetime(plan) {
+  if (!plan) return true;
+  const p = plan.toString().trim().toUpperCase();
+  return (
+    p === "LIFETIME" ||
+    p === "SPA_LIFE" ||
+    p === "TRỌN ĐỜI" ||
+    p === "TRON DOI" ||
+    p === "VĨNH VIỄN" ||
+    p === "VINH VIEN" ||
+    p === "PRO"
+  );
+}
+
+/**
+ * Tính ngày hết hạn dựa theo mã gói chuẩn hóa
  */
 function calculateExpirationDate(fromDate, plan) {
   const d = new Date(fromDate.getTime());
-  switch (plan) {
+  const p = (plan || "").toString().trim().toUpperCase();
+
+  switch (p) {
     case "1_MONTH":
     case "30_DAYS":
+    case "SPA_1M":
+    case "1 THÁNG":
+    case "1 THANG":
+    case "1M":
       d.setDate(d.getDate() + 30);
       break;
+
     case "3_MONTHS":
     case "90_DAYS":
+    case "SPA_3M":
+    case "3 THÁNG":
+    case "3 THANG":
+    case "3M":
       d.setDate(d.getDate() + 90);
       break;
+
     case "6_MONTHS":
     case "180_DAYS":
+    case "SPA_6M":
+    case "6 THÁNG":
+    case "6 THANG":
+    case "6M":
       d.setDate(d.getDate() + 180);
       break;
+
     case "1_YEAR":
     case "365_DAYS":
+    case "SPA_1Y":
+    case "1 NĂM":
+    case "1 NAM":
+    case "1Y":
       d.setDate(d.getDate() + 365);
       break;
+
     default:
-      // Nếu nhập một con số cụ thể, vd "15" -> 15 ngày
-      const numDays = parseInt(plan);
+      const numDays = parseInt(p);
       if (!isNaN(numDays) && numDays > 0) {
         d.setDate(d.getDate() + numDays);
       } else {
-        d.setDate(d.getDate() + 365); // Mặc định 1 năm nếu không rõ
+        d.setDate(d.getDate() + 30); // Mặc định an toàn 30 ngày
       }
       break;
   }
@@ -498,12 +550,14 @@ function calculateExpirationDate(fromDate, plan) {
 }
 
 /**
- * Kiểm tra chuỗi ngày dd/MM/yyyy HH:mm xem đã qua thời điểm hiện tại chưa
+ * Chuyển chuỗi dd/MM/yyyy HH:mm sang đối tượng Date chuẩn
  */
-function checkIfExpired(dateStr) {
-  if (!dateStr || dateStr.toLowerCase().indexOf("vĩnh viễn") >= 0) return false;
+function parseDateStringToDate(dateStr) {
+  if (!dateStr) return null;
   try {
-    const parts = dateStr.split(" ");
+    const clean = dateStr.trim();
+    if (clean.toLowerCase().indexOf("vĩnh viễn") >= 0) return null;
+    const parts = clean.split(" ");
     const dParts = parts[0].split("/");
     const tParts = (parts[1] || "00:00").split(":");
     const day = parseInt(dParts[0]);
@@ -511,16 +565,69 @@ function checkIfExpired(dateStr) {
     const year = parseInt(dParts[2]);
     const hour = parseInt(tParts[0]);
     const min = parseInt(tParts[1]);
-
-    const targetDate = new Date(year, month, day, hour, min);
-    return new Date().getTime() > targetDate.getTime();
+    return new Date(year, month, day, hour, min);
   } catch (e) {
-    return false;
+    return null;
   }
 }
 
 /**
+ * Tính số ngày và giờ còn lại chính xác dựa trên ngày hết hạn cố định
+ */
+function calculateRemainingTime(expiresAtStr, isLifetime) {
+  if (isLifetime || !expiresAtStr || expiresAtStr.indexOf("Vĩnh viễn") >= 0) {
+    return {
+      isExpired: false,
+      daysRemaining: 0,
+      hoursRemaining: 0,
+      expiresMs: 0
+    };
+  }
+
+  const expDate = parseDateStringToDate(expiresAtStr);
+  if (!expDate) {
+    return {
+      isExpired: false,
+      daysRemaining: 0,
+      hoursRemaining: 0,
+      expiresMs: 0
+    };
+  }
+
+  const now = new Date();
+  const diffMs = expDate.getTime() - now.getTime();
+  if (diffMs <= 0) {
+    return {
+      isExpired: true,
+      daysRemaining: 0,
+      hoursRemaining: 0,
+      expiresMs: expDate.getTime()
+    };
+  }
+
+  const totalHours = Math.floor(diffMs / (3600 * 1000));
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+
+  return {
+    isExpired: false,
+    daysRemaining: days,
+    hoursRemaining: hours,
+    expiresMs: expDate.getTime()
+  };
+}
+
+/**
+ * Kiểm tra chuỗi ngày dd/MM/yyyy HH:mm xem đã qua thời điểm hiện tại chưa
+ */
+function checkIfExpired(dateStr) {
+  const remain = calculateRemainingTime(dateStr, false);
+  return remain.isExpired;
+}
+
+/**
  * Khôi phục bản quyền tự động theo Device ID khi người dùng cài lại app hoặc xóa dữ liệu
+ * Giữ nguyên vẹn gói đã mua và số ngày còn lại gốc
  */
 function processLicenseRestore(deviceId) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -558,31 +665,37 @@ function processLicenseRestore(deviceId) {
   const plan = (matchedData[COL_PLAN - 1] || "LIFETIME").toString().trim().toUpperCase();
   const activatedAt = (matchedData[COL_ACTIVATED_AT - 1] || "").toString().trim();
   const expiresAt = (matchedData[COL_EXPIRES_AT - 1] || "").toString().trim();
-  const isLifetime = (plan === "LIFETIME" || plan === "TRỌN ĐỜI" || plan === "PRO");
+  const isLifetime = isPlanLifetime(plan);
 
-  // Kiểm tra hạn sử dụng nếu không phải trọn đời
-  if (!isLifetime && expiresAt) {
-    const isExpired = checkIfExpired(expiresAt);
-    if (isExpired) {
-      sheet.getRange(matchedRow, COL_STATUS).setValue("EXPIRED");
-      return {
-        success: false,
-        restored: false,
-        isExpired: true,
-        message: "Gói bản quyền của thiết bị này đã hết hạn sử dụng vào ngày " + expiresAt + "."
-      };
-    }
+  // Tính thời gian còn lại dựa trên ngày hết hạn cố định lúc kích hoạt ban đầu
+  const remain = calculateRemainingTime(expiresAt, isLifetime);
+
+  if (remain.isExpired) {
+    sheet.getRange(matchedRow, COL_STATUS).setValue("EXPIRED");
+    return {
+      success: false,
+      restored: false,
+      isExpired: true,
+      message: "Gói bản quyền của thiết bị này đã hết hạn sử dụng vào ngày " + expiresAt + ". Vui lòng mua hoặc gia hạn Key mới."
+    };
   }
+
+  const msg = isLifetime
+    ? "Khôi phục bản quyền trọn đời thành công cho thiết bị này!"
+    : "Khôi phục gói " + plan + " thành công! Còn " + remain.daysRemaining + " ngày sử dụng (đến " + expiresAt + ").";
 
   return {
     success: true,
     restored: true,
-    message: "Khôi phục bản quyền thành công từ máy chủ!",
+    message: msg,
     key: key,
     plan: plan,
     isLifetime: isLifetime,
     activatedAt: activatedAt,
     expiresAt: expiresAt || (isLifetime ? "Vĩnh viễn" : ""),
+    expiresMs: remain.expiresMs,
+    daysRemaining: remain.daysRemaining,
+    hoursRemaining: remain.hoursRemaining,
     deviceId: deviceId
   };
 }

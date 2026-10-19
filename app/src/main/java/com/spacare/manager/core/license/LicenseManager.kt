@@ -58,9 +58,17 @@ class LicenseManager private constructor(private val context: Context) {
         if (isActivated) {
             val now = System.currentTimeMillis()
 
+            // Chống tua ngược đồng hồ thiết bị (Clock tampering protection)
+            val lastSeenMs = prefs.getLong(KEY_LAST_VERIFIED_TIME_MS, 0L)
+            if (now >= lastSeenMs - 3600_000L) {
+                prefs.edit().putLong(KEY_LAST_VERIFIED_TIME_MS, maxOf(now, lastSeenMs)).apply()
+            }
+
             // Nếu là gói có thời hạn (không phải trọn đời) -> kiểm tra hạn sử dụng
             if (!isLifetime && expiresMs > 0) {
-                val remainingMs = expiresMs - now
+                val effectiveNow = if (now < lastSeenMs) lastSeenMs else now
+                val remainingMs = expiresMs - effectiveNow
+
                 if (remainingMs <= 0) {
                     // Đã hết hạn gói
                     return LicenseStatus(
@@ -77,13 +85,14 @@ class LicenseManager private constructor(private val context: Context) {
                         deviceId = deviceId,
                         firstLaunchDate = firstLaunchDate,
                         statusTitle = "Bản Quyền Đã Hết Hạn",
-                        statusDescription = "Gói $planName đã hết hạn vào $expiresDate. Vui lòng nhập Key kích hoạt mới để tiếp tục sử dụng."
+                        statusDescription = "Gói $planName đã hết hạn vào ngày $expiresDate. Vui lòng nhập Key mới để tiếp tục sử dụng."
                     )
                 } else {
-                    // Còn hạn
+                    // Còn hạn sử dụng
                     val totalHours = remainingMs / (60 * 60 * 1000L)
                     val days = (totalHours / 24).toInt()
                     val hours = (totalHours % 24).toInt()
+                    val timeRemainingText = if (days > 0) "Còn $days ngày $hours giờ" else "Còn $hours giờ"
 
                     return LicenseStatus(
                         isActivated = true,
@@ -98,8 +107,8 @@ class LicenseManager private constructor(private val context: Context) {
                         planName = planName,
                         deviceId = deviceId,
                         firstLaunchDate = firstLaunchDate,
-                        statusTitle = "$planName (Còn $days ngày)",
-                        statusDescription = "Bản quyền đã kích hoạt trên thiết bị này. Hạn sử dụng đến: $expiresDate."
+                        statusTitle = "$planName ($timeRemainingText)",
+                        statusDescription = "Bản quyền hợp lệ trên thiết bị này. Còn $days ngày $hours giờ (Hạn dùng: $expiresDate)."
                     )
                 }
             }
@@ -181,7 +190,13 @@ class LicenseManager private constructor(private val context: Context) {
             val activatedDateStr = result.activatedAt.ifBlank { sdf.format(Date()) }
             val expiresDateStr = result.expiresAt.ifBlank { if (result.isLifetime) "Vĩnh viễn" else "" }
 
-            val expiresMs = parseExpiresDateToMs(expiresDateStr, result.plan, result.isLifetime)
+            val expiresMs = parseExpiresDateToMs(
+                expiresStr = expiresDateStr,
+                plan = result.plan,
+                isLifetime = result.isLifetime,
+                serverExpiresMs = result.expiresMs,
+                activatedAtStr = activatedDateStr
+            )
             val planTitle = formatPlanTitle(result.plan, result.isLifetime)
 
             prefs.edit()
@@ -211,7 +226,13 @@ class LicenseManager private constructor(private val context: Context) {
             val activatedDateStr = result.activatedAt.ifBlank { sdf.format(Date()) }
             val expiresDateStr = result.expiresAt.ifBlank { if (result.isLifetime) "Vĩnh viễn" else "" }
 
-            val expiresMs = parseExpiresDateToMs(expiresDateStr, result.plan, result.isLifetime)
+            val expiresMs = parseExpiresDateToMs(
+                expiresStr = expiresDateStr,
+                plan = result.plan,
+                isLifetime = result.isLifetime,
+                serverExpiresMs = result.expiresMs,
+                activatedAtStr = activatedDateStr
+            )
             val planTitle = formatPlanTitle(result.plan, result.isLifetime)
 
             prefs.edit()
@@ -264,39 +285,74 @@ class LicenseManager private constructor(private val context: Context) {
             .remove(KEY_IS_LIFETIME)
             .remove(KEY_PLAN_NAME)
             .remove(KEY_DEVICE_ID)
+            .remove(KEY_LAST_VERIFIED_TIME_MS)
             .apply()
     }
 
-    private fun parseExpiresDateToMs(expiresStr: String, plan: String, isLifetime: Boolean): Long {
+    private fun parseExpiresDateToMs(
+        expiresStr: String,
+        plan: String,
+        isLifetime: Boolean,
+        serverExpiresMs: Long = 0L,
+        activatedAtStr: String = ""
+    ): Long {
         if (isLifetime || expiresStr.contains("vĩnh viễn", ignoreCase = true)) return 0L
-        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-        return try {
-            val date = sdf.parse(expiresStr)
-            date?.time ?: calculateFallbackExpiresMs(plan)
-        } catch (e: Exception) {
-            calculateFallbackExpiresMs(plan)
+        if (serverExpiresMs > 0L) return serverExpiresMs
+
+        val patterns = arrayOf(
+            "dd/MM/yyyy HH:mm",
+            "dd/MM/yyyy HH:mm:ss",
+            "dd/MM/yyyy",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd"
+        )
+        if (expiresStr.isNotBlank()) {
+            for (pattern in patterns) {
+                try {
+                    val sdf = SimpleDateFormat(pattern, Locale.getDefault())
+                    val date = sdf.parse(expiresStr)
+                    if (date != null && date.time > 0L) {
+                        return date.time
+                    }
+                } catch (ignored: Exception) {}
+            }
         }
+
+        // Nếu có ngày kích hoạt gốc -> tính từ ngày kích hoạt gốc thay vì thời điểm hiện tại (now)
+        // để tuyệt đối không bị reset lại ngày khi gỡ app cài lại hoặc khôi phục!
+        if (activatedAtStr.isNotBlank()) {
+            for (pattern in patterns) {
+                try {
+                    val sdf = SimpleDateFormat(pattern, Locale.getDefault())
+                    val actDate = sdf.parse(activatedAtStr)
+                    if (actDate != null && actDate.time > 0L) {
+                        return actDate.time + getPlanDurationMs(plan)
+                    }
+                } catch (ignored: Exception) {}
+            }
+        }
+
+        return System.currentTimeMillis() + getPlanDurationMs(plan)
     }
 
-    private fun calculateFallbackExpiresMs(plan: String): Long {
-        val now = System.currentTimeMillis()
+    private fun getPlanDurationMs(plan: String): Long {
         val days = when (plan.uppercase()) {
-            "1_MONTH", "30_DAYS" -> 30L
-            "3_MONTHS", "90_DAYS" -> 90L
-            "6_MONTHS", "180_DAYS" -> 180L
-            "1_YEAR", "365_DAYS" -> 365L
+            "1_MONTH", "30_DAYS", "SPA_1M", "1M" -> 30L
+            "3_MONTHS", "90_DAYS", "SPA_3M", "3M" -> 90L
+            "6_MONTHS", "180_DAYS", "SPA_6M", "6M" -> 180L
+            "1_YEAR", "365_DAYS", "SPA_1Y", "1Y" -> 365L
             else -> plan.toLongOrNull() ?: 30L
         }
-        return now + (days * 24 * 60 * 60 * 1000L)
+        return days * 24 * 60 * 60 * 1000L
     }
 
     private fun formatPlanTitle(plan: String, isLifetime: Boolean): String {
         if (isLifetime) return "Bản Quyền Trọn Đời (PRO)"
         return when (plan.uppercase()) {
-            "1_MONTH", "30_DAYS" -> "Gói 1 Tháng (PRO)"
-            "3_MONTHS", "90_DAYS" -> "Gói 3 Tháng (PRO)"
-            "6_MONTHS", "180_DAYS" -> "Gói 6 Tháng (PRO)"
-            "1_YEAR", "365_DAYS" -> "Gói 1 Năm (PRO)"
+            "1_MONTH", "30_DAYS", "SPA_1M", "1M" -> "Gói 1 Tháng (PRO)"
+            "3_MONTHS", "90_DAYS", "SPA_3M", "3M" -> "Gói 3 Tháng (PRO)"
+            "6_MONTHS", "180_DAYS", "SPA_6M", "6M" -> "Gói 6 Tháng (PRO)"
+            "1_YEAR", "365_DAYS", "SPA_1Y", "1Y" -> "Gói 1 Năm (PRO)"
             else -> "Gói Bản Quyền $plan"
         }
     }
@@ -312,6 +368,7 @@ class LicenseManager private constructor(private val context: Context) {
         private const val KEY_IS_LIFETIME = "key_is_lifetime"
         private const val KEY_PLAN_NAME = "key_plan_name"
         private const val KEY_DEVICE_ID = "key_device_id"
+        private const val KEY_LAST_VERIFIED_TIME_MS = "key_last_verified_time_ms"
 
         // 15 ngày dùng thử = 15 * 24 * 60 * 60 * 1000 = 1_296_000_000 ms
         const val TRIAL_DURATION_MS = 15 * 24 * 60 * 60 * 1000L

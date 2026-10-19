@@ -127,6 +127,35 @@ const activeOrdersCache = new Map();
 // Cache lưu trữ bản quyền đã thanh toán để phục vụ khôi phục
 const paidLicensesCache = new Map();
 
+function formatVnDate(date) {
+    const vnTime = new Date(date.getTime() + 7 * 3600 * 1000);
+    const day = String(vnTime.getUTCDate()).padStart(2, "0");
+    const month = String(vnTime.getUTCMonth() + 1).padStart(2, "0");
+    const year = vnTime.getUTCFullYear();
+    const hours = String(vnTime.getUTCHours()).padStart(2, "0");
+    const mins = String(vnTime.getUTCMinutes()).padStart(2, "0");
+    return `${day}/${month}/${year} ${hours}:${mins}`;
+}
+
+function getPlanDurationDays(plan) {
+    const p = (plan || "").toString().trim().toUpperCase();
+    switch (p) {
+        case "1_MONTH": case "30_DAYS": case "SPA_1M": case "1M": return 30;
+        case "3_MONTHS": case "90_DAYS": case "SPA_3M": case "3M": return 90;
+        case "6_MONTHS": case "180_DAYS": case "SPA_6M": case "6M": return 180;
+        case "1_YEAR": case "365_DAYS": case "SPA_1Y": case "1Y": return 365;
+        default:
+            const n = parseInt(p);
+            return (!isNaN(n) && n > 0) ? n : 30;
+    }
+}
+
+function isPlanProLifetime(plan) {
+    if (!plan) return true;
+    const p = plan.toString().trim().toUpperCase();
+    return p === "LIFETIME" || p === "SPA_LIFE" || p === "PRO" || p === "VĨNH VIỄN" || p === "TRỌN ĐỜI";
+}
+
 export default {
     async fetch(request, env, ctx) {
         // Xử lý CORS để app di động và web đều gọi được
@@ -314,17 +343,28 @@ export default {
                                 });
 
                                 // Lưu vào Cloudflare KV
+                                const keyRecord = {
+                                    key: generatedKey,
+                                    tier: tier.id,
+                                    plan: tier.plan || "LIFETIME",
+                                    status: "AVAILABLE",
+                                    orderCode: numericOrderCode,
+                                    purchasedByDeviceId: deviceId,
+                                    deviceId: null,
+                                    deviceName: null,
+                                    activatedAt: null,
+                                    expiresAt: null,
+                                    expiresMs: 0,
+                                    createdAt: Date.now()
+                                };
+
                                 if (env.WCLONE_KV) {
                                     try {
-                                        await env.WCLONE_KV.put(`order_${numericOrderCode}`, JSON.stringify({
-                                            tier: tier.id,
-                                            plan: tier.plan || "LIFETIME",
-                                            key: generatedKey,
-                                            deviceId: deviceId,
-                                            paidAt: Date.now()
-                                        }));
+                                        await env.WCLONE_KV.put(`order_${numericOrderCode}`, JSON.stringify(keyRecord));
+                                        await env.WCLONE_KV.put(`key_${generatedKey}`, JSON.stringify(keyRecord));
                                     } catch (e) {}
                                 }
+                                paidLicensesCache.set(`key_${generatedKey}`, keyRecord);
 
                                 // Đồng bộ tự động sang Google Sheet nếu có GOOGLE_SHEET_URL
                                 if (env.GOOGLE_SHEET_URL && (tier.app === "spamanager" || app === "spamanager")) {
@@ -382,9 +422,167 @@ export default {
         }
 
         // =========================================================================
-        // 3. ENDPOINT: /restore-license (Khôi phục bản quyền theo mã thiết bị)
+        // 3. ENDPOINTS XÁC THỰC BẢN QUYỀN (ACTIVATE / RESTORE / VERIFY)
         // =========================================================================
-        if (path === "/restore-license" || path === "/api/restore-license") {
+        const actionParam = (url.searchParams.get("action") || "").trim().toLowerCase();
+
+        // 3.1. KÍCH HOẠT KEY (ACTIVATE)
+        if (path === "/activate-license" || path === "/api/activate-license" || ((path === "/api/license" || path === "/license") && actionParam === "activate")) {
+            const rawKey = (url.searchParams.get("key") || "").trim().toUpperCase();
+            const deviceId = (url.searchParams.get("deviceId") || "").trim().toUpperCase();
+            const deviceName = (url.searchParams.get("deviceName") || "").trim();
+
+            if (!rawKey) {
+                return jsonResponse({ success: false, message: "Vui lòng nhập Key kích hoạt." }, 400);
+            }
+            if (!deviceId || deviceId.length < 4) {
+                return jsonResponse({ success: false, message: "Mã thiết bị (deviceId) không hợp lệ." }, 400);
+            }
+
+            // A. Tra cứu trong Cloudflare KV / Cache
+            let record = null;
+            if (env.WCLONE_KV) {
+                try {
+                    record = await env.WCLONE_KV.get(`key_${rawKey}`, { type: "json" });
+                } catch (e) {}
+            }
+            if (!record) {
+                record = paidLicensesCache.get(`key_${rawKey}`);
+            }
+
+            // B. Nếu không tìm thấy trong KV nhưng có cấu hình Google Sheets -> Tra cứu Google Sheet
+            if (!record && env.GOOGLE_SHEET_URL) {
+                try {
+                    const sheetRes = await fetch(`${env.GOOGLE_SHEET_URL}?action=activate&key=${encodeURIComponent(rawKey)}&deviceId=${encodeURIComponent(deviceId)}&deviceName=${encodeURIComponent(deviceName)}`);
+                    const sheetData = await sheetRes.json();
+                    return jsonResponse(sheetData);
+                } catch (e) {}
+            }
+
+            if (!record) {
+                return jsonResponse({
+                    success: false,
+                    message: "Key kích hoạt không tồn tại trên hệ thống. Vui lòng kiểm tra lại chính xác."
+                }, 404);
+            }
+
+            const isLifetime = isPlanProLifetime(record.plan);
+
+            // C. Key đã được kích hoạt trước đó
+            if (record.status === "ACTIVATED") {
+                // Trùng thiết bị -> Cho phép kích hoạt lại / Khôi phục
+                if (record.deviceId === deviceId) {
+                    const nowMs = Date.now();
+                    if (!isLifetime && record.expiresMs && nowMs > record.expiresMs) {
+                        record.status = "EXPIRED";
+                        if (env.WCLONE_KV) {
+                            try { await env.WCLONE_KV.put(`key_${rawKey}`, JSON.stringify(record)); } catch (e) {}
+                        }
+                        return jsonResponse({
+                            success: false,
+                            isExpired: true,
+                            message: `Key bản quyền này đã hết hạn sử dụng vào ngày ${record.expiresAt}. Vui lòng mua Key mới.`
+                        });
+                    }
+
+                    const diffMs = isLifetime ? 0 : Math.max(0, record.expiresMs - nowMs);
+                    const daysRemaining = isLifetime ? 0 : Math.floor(diffMs / (24 * 3600 * 1000));
+                    const hoursRemaining = isLifetime ? 0 : Math.floor((diffMs % (24 * 3600 * 1000)) / (3600 * 1000));
+
+                    return jsonResponse({
+                        success: true,
+                        restored: true,
+                        message: isLifetime
+                            ? "Xác thực bản quyền Trọn Đời thành công trên thiết bị này!"
+                            : `Xác thực gói ${record.plan} thành công! Còn ${daysRemaining} ngày sử dụng (đến ${record.expiresAt}).`,
+                        key: record.key,
+                        plan: record.plan,
+                        isLifetime: isLifetime,
+                        activatedAt: record.activatedAt,
+                        expiresAt: record.expiresAt,
+                        expiresMs: record.expiresMs,
+                        daysRemaining: daysRemaining,
+                        hoursRemaining: hoursRemaining,
+                        deviceId: deviceId
+                    });
+                }
+
+                // Khác thiết bị -> Chặn
+                const prevDev = record.deviceName ? `'${record.deviceName}'` : "thiết bị khác";
+                return jsonResponse({
+                    success: false,
+                    message: `Key này đã được kích hoạt trên ${prevDev} vào ngày ${record.activatedAt}. Mỗi key chỉ dùng được trên 1 thiết bị duy nhất!`
+                }, 403);
+            }
+
+            // D. Key chưa kích hoạt (AVAILABLE) -> Kích hoạt lần đầu
+            if (record.status === "AVAILABLE") {
+                const now = new Date();
+                const nowMs = now.getTime();
+                const activatedAtStr = formatVnDate(now);
+
+                let expiresAtStr = "Vĩnh viễn";
+                let expiresMs = 0;
+                let daysRemaining = 0;
+                let hoursRemaining = 0;
+
+                if (!isLifetime) {
+                    const days = getPlanDurationDays(record.plan);
+                    const expDate = new Date(nowMs + days * 24 * 3600 * 1000);
+                    expiresAtStr = formatVnDate(expDate);
+                    expiresMs = expDate.getTime();
+                    daysRemaining = days;
+                }
+
+                record.status = "ACTIVATED";
+                record.deviceId = deviceId;
+                record.deviceName = deviceName;
+                record.activatedAt = activatedAtStr;
+                record.expiresAt = expiresAtStr;
+                record.expiresMs = expiresMs;
+
+                if (env.WCLONE_KV) {
+                    try {
+                        await env.WCLONE_KV.put(`key_${rawKey}`, JSON.stringify(record));
+                        await env.WCLONE_KV.put(`device_${deviceId}`, JSON.stringify(record));
+                    } catch (e) {}
+                }
+                paidLicensesCache.set(`key_${rawKey}`, record);
+                paidLicensesCache.set(`device_${deviceId}`, record);
+
+                // Đồng bộ sang Google Sheet nếu có
+                if (env.GOOGLE_SHEET_URL) {
+                    try {
+                        const syncUrl = `${env.GOOGLE_SHEET_URL}?action=activate&key=${encodeURIComponent(rawKey)}&deviceId=${encodeURIComponent(deviceId)}&deviceName=${encodeURIComponent(deviceName)}`;
+                        ctx.waitUntil(fetch(syncUrl));
+                    } catch (e) {}
+                }
+
+                return jsonResponse({
+                    success: true,
+                    message: isLifetime
+                        ? "Kích hoạt bản quyền Trọn Đời (PRO) thành công trên thiết bị này!"
+                        : `Kích hoạt gói ${record.plan} thành công! Còn ${daysRemaining} ngày sử dụng (đến ${expiresAtStr}).`,
+                    key: record.key,
+                    plan: record.plan,
+                    isLifetime: isLifetime,
+                    activatedAt: activatedAtStr,
+                    expiresAt: expiresAtStr,
+                    expiresMs: expiresMs,
+                    daysRemaining: daysRemaining,
+                    hoursRemaining: hoursRemaining,
+                    deviceId: deviceId
+                });
+            }
+
+            return jsonResponse({
+                success: false,
+                message: `Key đang ở trạng thái: ${record.status}. Không thể kích hoạt.`
+            }, 400);
+        }
+
+        // 3.2. KHÔI PHỤC BẢN QUYỀN (RESTORE)
+        if (path === "/restore-license" || path === "/api/restore-license" || ((path === "/api/license" || path === "/license") && actionParam === "restore")) {
             const deviceId = (url.searchParams.get("deviceId") || "").trim().toUpperCase();
             if (!deviceId || deviceId.length < 4) {
                 return jsonResponse({
@@ -393,43 +591,71 @@ export default {
                 }, 400);
             }
 
-            // 1. Kiểm tra Cloudflare KV
+            // 1. Kiểm tra Cloudflare KV theo Device ID
+            let saved = null;
             if (env.WCLONE_KV) {
                 try {
-                    const saved = await env.WCLONE_KV.get(`license_${deviceId}`, { type: "json" });
-                    if (saved && saved.key) {
-                        return jsonResponse({
-                            success: true,
-                            paid: true,
-                            restored: true,
-                            tier: saved.tier,
-                            plan: saved.plan || "LIFETIME",
-                            key: saved.key,
-                            message: "Khôi phục bản quyền thành công từ đám mây!"
-                        });
-                    }
+                    saved = await env.WCLONE_KV.get(`device_${deviceId}`, { type: "json" });
                 } catch (e) {}
             }
+            if (!saved) {
+                saved = paidLicensesCache.get(`device_${deviceId}`);
+            }
 
-            // 2. Kiểm tra bộ nhớ đệm
-            const cached = paidLicensesCache.get(deviceId);
-            if (cached && cached.key) {
+            // 2. Nếu tìm thấy bản quyền đã kích hoạt trên thiết bị này
+            if (saved && saved.key) {
+                const isLifetime = isPlanProLifetime(saved.plan);
+                const nowMs = Date.now();
+
+                // Kiểm tra hết hạn
+                if (!isLifetime && saved.expiresMs && nowMs > saved.expiresMs) {
+                    return jsonResponse({
+                        success: false,
+                        restored: false,
+                        isExpired: true,
+                        message: `Gói bản quyền của thiết bị này đã hết hạn sử dụng vào ngày ${saved.expiresAt}. Vui lòng mua hoặc gia hạn Key mới.`
+                    });
+                }
+
+                const diffMs = isLifetime ? 0 : Math.max(0, (saved.expiresMs || nowMs) - nowMs);
+                const daysRemaining = isLifetime ? 0 : Math.floor(diffMs / (24 * 3600 * 1000));
+                const hoursRemaining = isLifetime ? 0 : Math.floor((diffMs % (24 * 3600 * 1000)) / (3600 * 1000));
+
                 return jsonResponse({
                     success: true,
                     paid: true,
                     restored: true,
-                    tier: cached.tier,
-                    plan: cached.plan || "LIFETIME",
-                    key: cached.key,
-                    message: "Khôi phục bản quyền thành công từ máy chủ!"
+                    message: isLifetime
+                        ? "Khôi phục bản quyền Trọn Đời thành công từ đám mây!"
+                        : `Khôi phục gói ${saved.plan} thành công! Còn ${daysRemaining} ngày sử dụng (đến ${saved.expiresAt}).`,
+                    key: saved.key,
+                    plan: saved.plan || "LIFETIME",
+                    isLifetime: isLifetime,
+                    activatedAt: saved.activatedAt || "",
+                    expiresAt: saved.expiresAt || (isLifetime ? "Vĩnh viễn" : ""),
+                    expiresMs: saved.expiresMs || 0,
+                    daysRemaining: daysRemaining,
+                    hoursRemaining: hoursRemaining,
+                    deviceId: deviceId
                 });
+            }
+
+            // 3. Fallback qua Google Sheet nếu có
+            if (env.GOOGLE_SHEET_URL) {
+                try {
+                    const sheetRes = await fetch(`${env.GOOGLE_SHEET_URL}?action=restore&deviceId=${encodeURIComponent(deviceId)}`);
+                    const sheetData = await sheetRes.json();
+                    if (sheetData && sheetData.success) {
+                        return jsonResponse(sheetData);
+                    }
+                } catch (e) {}
             }
 
             return jsonResponse({
                 success: false,
                 paid: false,
                 restored: false,
-                message: "Không tìm thấy thông tin bản quyền đã mua cho thiết bị này."
+                message: "Không tìm thấy thông tin bản quyền đã kích hoạt cho thiết bị này."
             });
         }
 
