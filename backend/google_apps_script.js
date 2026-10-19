@@ -54,10 +54,26 @@ function onOpen() {
  */
 function setupSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
+  if (!ss) {
+    throw new Error("Không tìm thấy Spreadsheet đang mở. Vui lòng mở Apps Script từ Google Sheets (Tiện ích mở rộng -> Apps Script).");
   }
+
+  let sheet = ss.getSheetByName(SHEET_NAME);
+
+  if (!sheet) {
+    // Nếu bảng tính chỉ có 1 tab mặc định (Sheet1 hoặc Trang tính 1) và chưa có dữ liệu, đổi tên luôn tab đó
+    const sheets = ss.getSheets();
+    if (sheets.length === 1 && sheets[0].getLastRow() <= 1) {
+      sheet = sheets[0];
+      sheet.setName(SHEET_NAME);
+    } else {
+      sheet = ss.insertSheet(SHEET_NAME, 0); // Đưa tab Licenses lên đầu tiên
+    }
+  }
+
+  // Luôn kích hoạt tab Licenses hiển thị ngay trước mắt người dùng
+  ss.setActiveSheet(sheet);
+  sheet.activate();
 
   // Tiêu đề các cột
   const headers = [
@@ -101,7 +117,18 @@ function setupSheet() {
     addSampleKey(sheet, "VD-DEMO-1MTH-9999", "1_MONTH", "AVAILABLE", "Spa Khách Dùng Thử 1 Tháng", "Gói 1 tháng");
   }
 
-  SpreadsheetApp.getActiveSpreadsheet().toast("Đã khởi tạo bảng quản lý License thành công!", "Thông Báo", 3);
+  SpreadsheetApp.flush();
+
+  try {
+    const ui = SpreadsheetApp.getUi();
+    ui.alert(
+      "Khởi Tạo Thành Công!",
+      "Đã khởi tạo bảng quản lý bản quyền 'Licenses' thành công!\n\nBạn hãy kiểm tra tab 'Licenses' ở thanh dưới cùng của Google Sheets.",
+      ui.ButtonSet.OK
+    );
+  } catch (e) {
+    ss.toast("Đã khởi tạo bảng quản lý License thành công!", "Thông Báo", 5);
+  }
 }
 
 function addSampleKey(sheet, key, plan, status, customer, notes) {
