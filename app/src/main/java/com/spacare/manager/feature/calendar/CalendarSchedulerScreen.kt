@@ -1199,7 +1199,10 @@ fun CreateAppointmentDialog(
                             if (clientName.isNotBlank() && clientPhone.isNotBlank()) {
                                 // Nếu người dùng chọn lưu khách hàng mới
                                 if (saveAsNewClient && selectedClient == null) {
-                                    val newClient = Client(
+                                    val phoneClean = clientPhone.trim()
+                                    val alreadyExists = clients.any { it.phone == phoneClean }
+                                    if (!alreadyExists) {
+                                        val newClient = Client(
                                         id = "KH-" + (1000..9999).random(),
                                         fullName = clientName.trim(),
                                         phone = clientPhone.trim(),
@@ -1215,6 +1218,7 @@ fun CreateAppointmentDialog(
                                         beforeAfterComparisons = emptyList()
                                     )
                                     onAddNewClient?.invoke(newClient)
+                                    }
                                 }
 
                                 val dur = duration.toIntOrNull() ?: 60

@@ -861,9 +861,12 @@ fun CreateAppointmentForClientDialog(
             Button(
                 onClick = {
                     val calculatedPrice = if (isPackageSession) 0L else (customPriceStr.toLongOrNull() ?: 0L)
-                    val endHourInt = (startTime.split(":").firstOrNull()?.toIntOrNull() ?: 9) + 1
-                    val endMinStr = startTime.split(":").getOrNull(1) ?: "00"
-                    val calculatedEndTime = String.format("%02d:%s", endHourInt, endMinStr)
+                    val startHour = startTime.split(":").firstOrNull()?.toIntOrNull() ?: 9
+                    val startMin = startTime.split(":").getOrNull(1)?.toIntOrNull() ?: 0
+                    val totalMin = startHour * 60 + startMin + durationMinutes
+                    val endHour = (totalMin / 60) % 24
+                    val endMin = totalMin % 60
+                    val calculatedEndTime = String.format("%02d:%02d", endHour, endMin)
 
                     val newAppt = Appointment(
                         id = "APT-" + (1000..9999).random(),
