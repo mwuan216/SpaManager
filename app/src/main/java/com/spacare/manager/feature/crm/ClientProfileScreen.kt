@@ -56,6 +56,7 @@ fun ClientProfileScreen(
     onDeleteClient: (String) -> Unit,
     onCheckInSession: (packageId: String, intervalDays: Int, nextDate: String?) -> Unit,
     onAddTreatmentPackage: (TreatmentPackage) -> Unit,
+    onUpdatePackageCycle: ((packageId: String, intervalDays: Int, nextDate: String) -> Unit)? = null,
     onAddBeforeAfter: (BeforeAfterComparison) -> Unit = {},
     onAddAppointment: (Appointment) -> Unit = {},
     onAddSessionPhoto: (SessionPhotoRecord) -> Unit = {},
@@ -358,6 +359,9 @@ fun ClientProfileScreen(
                         },
                         onCheckInSessionWithCycle = { interval, nextDate ->
                             onCheckInSession(pkg.id, interval, nextDate)
+                        },
+                        onUpdatePackageCycle = { interval, nextDate ->
+                            onUpdatePackageCycle?.invoke(pkg.id, interval, nextDate)
                         }
                     )
                 }
@@ -517,7 +521,8 @@ fun ClientProfileScreen(
     if (showAddPackageDialog) {
         var pkgName by remember { mutableStateOf("") }
         var totalSessions by remember { mutableStateOf("10") }
-        var selectedIntervalDays by remember { mutableStateOf(7) }
+        var selectedIntervalDays by remember { mutableStateOf(5) }
+        var manualIntervalInput by remember { mutableStateOf("5") }
         var therapist by remember { mutableStateOf(technicians.firstOrNull()?.let { "KTV. ${it.name}" } ?: "") }
         val sessionPresets = listOf("5", "8", "10", "12", "15", "20")
 
@@ -608,21 +613,24 @@ fun ClientProfileScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // Chọn chu kỳ điều trị khuyến nghị
+                    // Chọn chu kỳ điều trị khuyến nghị hoặc nhập thủ công
                     Text(
-                        "Chu kỳ điều trị (khoảng cách giữa các buổi):",
+                        "Chu kỳ điều trị (Mặc định 5 ngày hoặc nhập thủ công):",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = CharcoalTextSecondary
                     )
-                    val cyclePresets = listOf(5, 7, 10, 14, 21, 30)
+                    val cyclePresets = listOf(3, 5, 7, 10, 14, 21, 30)
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(cyclePresets) { d ->
                             val isSelected = selectedIntervalDays == d
                             FilterChip(
                                 selected = isSelected,
-                                onClick = { selectedIntervalDays = d },
-                                label = { Text("$d ngày", fontSize = 11.sp) },
+                                onClick = {
+                                    selectedIntervalDays = d
+                                    manualIntervalInput = d.toString()
+                                },
+                                label = { Text(if (d == 5) "$d ngày (chuẩn)" else "$d ngày", fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = SageGreenContainer,
                                     selectedLabelColor = SageGreenPrimary
@@ -630,6 +638,19 @@ fun ClientProfileScreen(
                             )
                         }
                     }
+
+                    OutlinedTextField(
+                        value = manualIntervalInput,
+                        onValueChange = {
+                            manualIntervalInput = it.filter { char -> char.isDigit() }
+                            selectedIntervalDays = manualIntervalInput.toIntOrNull() ?: 5
+                        },
+                        label = { Text("Số ngày chu kỳ tùy chỉnh (thủ công)") },
+                        trailingIcon = { Text("ngày ", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary) },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     // Chọn nhanh KTV phụ trách
                     if (technicians.isNotEmpty()) {

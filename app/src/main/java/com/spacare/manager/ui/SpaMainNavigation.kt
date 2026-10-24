@@ -221,6 +221,9 @@ fun SpaMainApp(
                         onAddTreatmentPackage = { pkg ->
                             repository.addTreatmentPackage(selectedClient.id, pkg)
                         },
+                        onUpdatePackageCycle = { packageId, intervalDays, nextDate ->
+                            repository.updatePackageCycle(selectedClient.id, packageId, intervalDays, nextDate)
+                        },
                         onAddBeforeAfter = { record ->
                             repository.addBeforeAfter(selectedClient.id, record)
                         },

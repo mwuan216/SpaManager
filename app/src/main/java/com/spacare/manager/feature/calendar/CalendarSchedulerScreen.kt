@@ -342,7 +342,7 @@ fun CalendarSchedulerScreen(
                                     color = SageGreenPrimary
                                 )
                                 Text(
-                                    text = "Chu kỳ 7-10 ngày • Chạm để xem danh sách & gọi/nhắn tin",
+                                    text = "Chu kỳ điều trị (mặc định 5 ngày) • Chạm để xem danh sách & gọi/nhắn tin",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = CharcoalTextSecondary,
                                     fontSize = 11.sp
@@ -1863,7 +1863,7 @@ fun AppointmentNotificationCenterDialog(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(c.fullName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = CharcoalTextPrimary)
-                                        Text("${pkg.name} • Còn ${pkg.remainingSessions} buổi", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary, fontSize = 11.sp)
+                                        Text("${pkg.name} • Chu kỳ ${pkg.intervalDays} ngày • Còn ${pkg.remainingSessions} buổi", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary, fontSize = 11.sp)
                                     }
                                     Surface(
                                         shape = CircleShape,

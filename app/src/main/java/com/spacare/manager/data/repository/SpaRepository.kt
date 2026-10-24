@@ -207,7 +207,7 @@ class SpaRepository(context: Context? = null) {
                         startDate = "12/08/2026",
                         expiryDate = "12/12/2026",
                         assignedTherapist = "KTV. Thảo My",
-                        intervalDays = 7,
+                        intervalDays = 5,
                         lastSessionDate = "17/10/2026",
                         nextRecommendedDate = "24/10/2026"
                     ),
@@ -540,7 +540,7 @@ class SpaRepository(context: Context? = null) {
     fun checkInSession(
         clientId: String,
         packageId: String,
-        intervalDays: Int = 7,
+        intervalDays: Int = 5,
         customNextDate: String? = null
     ) {
         val client = _clients.value.find { it.id == clientId } ?: return
@@ -604,6 +604,27 @@ class SpaRepository(context: Context? = null) {
         }
         val finalPkg = pkg.copy(nextRecommendedDate = effectiveNextDate)
         val updatedPackages = client.treatmentPackages + finalPkg
+        updateClient(client.copy(treatmentPackages = updatedPackages))
+    }
+
+    /**
+     * Cập nhật chu kỳ điều trị và ngày hẹn tiếp theo của gói liệu trình (cài đặt thủ công)
+     */
+    fun updatePackageCycle(
+        clientId: String,
+        packageId: String,
+        intervalDays: Int,
+        nextRecommendedDate: String?
+    ) {
+        val client = _clients.value.find { it.id == clientId } ?: return
+        val updatedPackages = client.treatmentPackages.map { pkg ->
+            if (pkg.id == packageId) {
+                pkg.copy(
+                    intervalDays = intervalDays.coerceAtLeast(1),
+                    nextRecommendedDate = nextRecommendedDate
+                )
+            } else pkg
+        }
         updateClient(client.copy(treatmentPackages = updatedPackages))
     }
 

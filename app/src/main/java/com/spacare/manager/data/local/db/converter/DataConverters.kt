@@ -73,7 +73,7 @@ class DataConverters {
                         startDate = obj.optString("startDate", ""),
                         expiryDate = obj.optString("expiryDate", ""),
                         assignedTherapist = obj.optString("assignedTherapist", ""),
-                        intervalDays = obj.optInt("intervalDays", 7),
+                        intervalDays = obj.optInt("intervalDays", 5),
                         lastSessionDate = obj.optString("lastSessionDate", "").takeIf { it.isNotBlank() },
                         nextRecommendedDate = obj.optString("nextRecommendedDate", "").takeIf { it.isNotBlank() }
                     )
