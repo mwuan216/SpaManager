@@ -46,6 +46,9 @@ class DataConverters {
                 put("startDate", pkg.startDate)
                 put("expiryDate", pkg.expiryDate)
                 put("assignedTherapist", pkg.assignedTherapist)
+                put("intervalDays", pkg.intervalDays)
+                put("lastSessionDate", pkg.lastSessionDate ?: "")
+                put("nextRecommendedDate", pkg.nextRecommendedDate ?: "")
             }
             jsonArray.put(obj)
         }
@@ -69,7 +72,10 @@ class DataConverters {
                         remainingSessions = obj.optInt("remainingSessions", 1),
                         startDate = obj.optString("startDate", ""),
                         expiryDate = obj.optString("expiryDate", ""),
-                        assignedTherapist = obj.optString("assignedTherapist", "")
+                        assignedTherapist = obj.optString("assignedTherapist", ""),
+                        intervalDays = obj.optInt("intervalDays", 7),
+                        lastSessionDate = obj.optString("lastSessionDate", "").takeIf { it.isNotBlank() },
+                        nextRecommendedDate = obj.optString("nextRecommendedDate", "").takeIf { it.isNotBlank() }
                     )
                 )
             }

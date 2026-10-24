@@ -124,6 +124,79 @@ object NotificationHelper {
         }
     }
 
+    fun showRoutineReminderNotification(
+        context: Context,
+        packageId: String,
+        clientName: String,
+        clientPhone: String,
+        packageName: String,
+        intervalDays: Int,
+        remainingSessions: Int,
+        recommendedDate: String
+    ) {
+        createNotificationChannel(context)
+
+        if (!hasNotificationPermission(context)) {
+            return
+        }
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            packageId.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val largeIconBitmap = try {
+            BitmapFactory.decodeResource(context.resources, R.drawable.app_logo)
+        } catch (e: Exception) {
+            null
+        }
+
+        val title = "🌿 Nhắc Lịch Liệu Trình: $clientName"
+        val shortContent = "Gói: $packageName • Chu kỳ $intervalDays ngày (Còn $remainingSessions buổi)"
+        val bigText = StringBuilder().apply {
+            append("• Khách hàng: $clientName ($clientPhone)\n")
+            append("• Gói liệu trình: $packageName\n")
+            append("• Chu kỳ điều trị: $intervalDays ngày làm 1 lần\n")
+            append("• Số buổi còn lại: $remainingSessions buổi\n")
+            append("• Ngày dự kiến làm buổi tiếp theo: $recommendedDate\n")
+            append("👉 Đã đến hạn nhắc hẹn! Hãy gọi điện hoặc gửi tin nhắn cho khách nhé.")
+        }.toString()
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .apply {
+                if (largeIconBitmap != null) {
+                    setLargeIcon(largeIconBitmap)
+                }
+            }
+            .setContentTitle(title)
+            .setContentText(shortContent)
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .setBigContentTitle(title)
+                    .bigText(bigText)
+                    .setSummaryText("Văn Định Skinlab • Nhắc Lịch Liệu Trình")
+            )
+            .setColor(Color.parseColor("#2D5A43"))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        try {
+            val notificationManager = NotificationManagerCompat.from(context)
+            notificationManager.notify(packageId.hashCode(), notification)
+        } catch (e: SecurityException) {
+            // Permission revoked
+        }
+    }
+
     fun showTestNotification(context: Context) {
         showAppointmentApproachingNotification(
             context = context,

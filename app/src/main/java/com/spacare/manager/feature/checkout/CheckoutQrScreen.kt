@@ -753,7 +753,7 @@ fun CheckoutQrScreen(
                                     Button(
                                         onClick = {
                                             onConfirmPayment()
-                                            Toast.makeText(context, "Đã xác nhận thanh toán hóa đơn #${invoice.invoiceCode}", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Đã xác nhận thanh toán hóa đơn #${invoice.invoiceCode} và cập nhật báo cáo doanh thu!", Toast.LENGTH_SHORT).show()
                                         },
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = SageGreenPrimary,
@@ -773,6 +773,45 @@ fun CheckoutQrScreen(
                                             color = Color.White,
                                             fontWeight = FontWeight.Bold
                                         )
+                                    }
+                                } else {
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = SuccessGreenContainer,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(12.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(20.dp))
+                                                Text(
+                                                    "Đã Thu Tiền & Cập Nhật Báo Cáo Doanh Thu",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = SuccessGreen
+                                                )
+                                            }
+                                            Text(
+                                                "Mã giao dịch: ${invoice.transactionRef ?: "Thành công"} • ${invoice.paidAt ?: ""}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = CharcoalTextSecondary,
+                                                fontSize = 11.sp
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Button(
+                                                onClick = onResetInvoice,
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = SageGreenPrimary,
+                                                    contentColor = Color.White
+                                                ),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text("Thu ngân đơn tiếp theo", fontWeight = FontWeight.Bold)
+                                            }
+                                        }
                                     }
                                 }
                             }

@@ -215,8 +215,8 @@ fun SpaMainApp(
                         onDeleteClient = { clientId ->
                             repository.deleteClient(clientId)
                         },
-                        onCheckInSession = { packageId ->
-                            repository.checkInSession(selectedClient.id, packageId)
+                        onCheckInSession = { packageId, intervalDays, nextDate ->
+                            repository.checkInSession(selectedClient.id, packageId, intervalDays, nextDate)
                         },
                         onAddTreatmentPackage = { pkg ->
                             repository.addTreatmentPackage(selectedClient.id, pkg)
@@ -283,7 +283,7 @@ fun SpaMainApp(
                 )
             }
             SpaNavDestination.DASHBOARD -> {
-                val dynamicMetrics = remember(selectedDashboardDate, appointments) {
+                val dynamicMetrics = remember(selectedDashboardDate, appointments, transactions, isRealUsageMode) {
                     repository.getMetricsForDate(selectedDashboardDate)
                 }
                 RevenueDashboardScreen(

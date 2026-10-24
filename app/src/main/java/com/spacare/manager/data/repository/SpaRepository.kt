@@ -206,7 +206,10 @@ class SpaRepository(context: Context? = null) {
                         remainingSessions = 3,
                         startDate = "12/08/2026",
                         expiryDate = "12/12/2026",
-                        assignedTherapist = "KTV. Thảo My"
+                        assignedTherapist = "KTV. Thảo My",
+                        intervalDays = 7,
+                        lastSessionDate = "17/10/2026",
+                        nextRecommendedDate = "24/10/2026"
                     ),
                     TreatmentPackage(
                         id = "PKG-02",
@@ -216,7 +219,10 @@ class SpaRepository(context: Context? = null) {
                         remainingSessions = 2,
                         startDate = "01/06/2026",
                         expiryDate = "30/11/2026",
-                        assignedTherapist = "KTV. Lan Phương"
+                        assignedTherapist = "KTV. Lan Phương",
+                        intervalDays = 10,
+                        lastSessionDate = "15/10/2026",
+                        nextRecommendedDate = "25/10/2026"
                     )
                 ),
                 serviceHistory = listOf(
@@ -531,25 +537,46 @@ class SpaRepository(context: Context? = null) {
         }
     }
 
-    fun checkInSession(clientId: String, packageId: String) {
+    fun checkInSession(
+        clientId: String,
+        packageId: String,
+        intervalDays: Int = 7,
+        customNextDate: String? = null
+    ) {
         val client = _clients.value.find { it.id == clientId } ?: return
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy - HH:mm", Locale.getDefault())
+        val dateOnlyFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val today = Date()
+        val todayDateStr = dateOnlyFormat.format(today)
+
         val updatedPackages = client.treatmentPackages.map { pkg ->
             if (pkg.id == packageId && pkg.remainingSessions > 0) {
+                val effectiveInterval = if (intervalDays > 0) intervalDays else pkg.intervalDays
+                val calculatedNextDate = customNextDate ?: run {
+                    val cal = Calendar.getInstance().apply {
+                        time = today
+                        add(Calendar.DAY_OF_YEAR, effectiveInterval)
+                    }
+                    dateOnlyFormat.format(cal.time)
+                }
+                val newRemaining = pkg.remainingSessions - 1
                 pkg.copy(
                     usedSessions = pkg.usedSessions + 1,
-                    remainingSessions = pkg.remainingSessions - 1
+                    remainingSessions = newRemaining,
+                    intervalDays = effectiveInterval,
+                    lastSessionDate = todayDateStr,
+                    nextRecommendedDate = if (newRemaining > 0) calculatedNextDate else null
                 )
             } else pkg
         }
 
         val updatedHistory = client.serviceHistory.toMutableList()
         val pkg = client.treatmentPackages.find { it.id == packageId }
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy - HH:mm", Locale.getDefault())
         updatedHistory.add(
             0,
             ServiceRecord(
                 id = "SRV-${System.currentTimeMillis().toString().takeLast(4)}",
-                date = dateFormat.format(Date()),
+                date = dateFormat.format(today),
                 serviceName = "${pkg?.name ?: "Liệu trình"} (Buổi ${(pkg?.usedSessions ?: 0) + 1})",
                 technicianName = pkg?.assignedTherapist ?: "Chuyên viên",
                 room = "Phòng Điều Trị VIP",
@@ -563,7 +590,20 @@ class SpaRepository(context: Context? = null) {
 
     fun addTreatmentPackage(clientId: String, pkg: TreatmentPackage) {
         val client = _clients.value.find { it.id == clientId } ?: return
-        val updatedPackages = client.treatmentPackages + pkg
+        val dateOnlyFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val effectiveNextDate = pkg.nextRecommendedDate ?: run {
+            try {
+                val cal = Calendar.getInstance()
+                val parsedStart = dateOnlyFormat.parse(pkg.startDate)
+                if (parsedStart != null) cal.time = parsedStart
+                cal.add(Calendar.DAY_OF_YEAR, pkg.intervalDays.coerceAtLeast(1))
+                dateOnlyFormat.format(cal.time)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        val finalPkg = pkg.copy(nextRecommendedDate = effectiveNextDate)
+        val updatedPackages = client.treatmentPackages + finalPkg
         updateClient(client.copy(treatmentPackages = updatedPackages))
     }
 
@@ -1567,6 +1607,10 @@ class SpaRepository(context: Context? = null) {
             ?: current.appointmentId?.let { id -> _appointments.value.find { it.id == id }?.staffName }
             ?: "KTV Phục Vụ"
 
+        val txDate = current.appointmentId?.let { id ->
+            _appointments.value.find { it.id == id }?.date
+        } ?: dateOnly
+
         // Lưu vào lịch sử giao dịch hóa đơn
         val newTx = InvoiceTransactionRecord(
             id = "TX-${System.currentTimeMillis()}",
@@ -1576,7 +1620,7 @@ class SpaRepository(context: Context? = null) {
             serviceName = current.items.joinToString(", ") { it.name },
             technicianName = assignedTech,
             time = timeOnly,
-            date = dateOnly,
+            date = txDate,
             amount = current.finalTotal,
             paymentMethod = "VietQR Chuyển Khoản",
             isPaid = true
@@ -1683,11 +1727,24 @@ class SpaRepository(context: Context? = null) {
 
         val isReal = _isRealUsageMode.value
 
+        // Doanh thu từ các giao dịch đã thanh toán trong ngày
+        val txRevenue = dayTxs.sumOf { it.amount }
+
+        // Doanh thu từ các lịch hẹn đã hoàn thành mà chưa có giao dịch hóa đơn đi kèm (ví dụ thanh toán tiền mặt trực tiếp)
+        val completedApptsWithoutTx = dayAppts.filter { appt ->
+            appt.status == AppointmentStatus.COMPLETED && appt.price > 0L &&
+            dayTxs.none { it.clientPhone == appt.clientPhone || it.clientName == appt.clientName }
+        }
+        val totalActualDayRevenue = txRevenue + completedApptsWithoutTx.sumOf { it.price }
+
         val dayRevenue = if (isReal) {
-            if (dayTxs.isNotEmpty()) dayTxs.sumOf { it.amount }
-            else dayAppts.filter { it.status == AppointmentStatus.COMPLETED }.sumOf { it.price }
+            totalActualDayRevenue
         } else {
-            if (dayAppts.isEmpty()) 0L else dayAppts.sumOf { it.price } + 8200000L
+            if (dayAppts.isNotEmpty()) {
+                dayAppts.sumOf { it.price } + 8200000L + txRevenue
+            } else {
+                totalActualDayRevenue
+            }
         }
 
         val totalPaidRevenue = _transactions.value.filter { it.isPaid }.sumOf { it.amount }
@@ -1729,10 +1786,21 @@ class SpaRepository(context: Context? = null) {
             }
             RevenueDistribution(pkgs, singles, products)
         } else {
+            var extraPkgs = 0L
+            var extraSingles = 0L
+            var extraProducts = 0L
+            _transactions.value.filter { it.isPaid }.forEach { tx ->
+                val name = tx.serviceName.lowercase()
+                when {
+                    name.contains("gói") || name.contains("liệu trình") || name.contains("facial") || name.contains("hifu") || name.contains("laser") -> extraPkgs += tx.amount
+                    name.contains("mỹ phẩm") || name.contains("kem") || name.contains("serum") || name.contains("sản phẩm") -> extraProducts += tx.amount
+                    else -> extraSingles += tx.amount
+                }
+            }
             RevenueDistribution(
-                treatmentPackages = 265000000L,
-                singleServices = 120800000L,
-                retailProducts = 80000000L
+                treatmentPackages = 265000000L + extraPkgs,
+                singleServices = 120800000L + extraSingles,
+                retailProducts = 80000000L + extraProducts
             )
         }
 
@@ -1765,13 +1833,15 @@ class SpaRepository(context: Context? = null) {
             )
         }
 
+        val totalServed = bookingCount + dayTxs.filter { it.clientName.contains("QR Cửa Hàng") }.size
+
         return DashboardMetrics(
             todayRevenue = dayRevenue,
             todayGrowthPercent = if (dayRevenue > 0) 14.8f else 0f,
-            weekRevenue = if (isReal) totalPaidRevenue else 112400000L,
-            monthRevenue = if (isReal) totalPaidRevenue else 465800000L,
-            totalBookingsToday = bookingCount,
-            roomOccupancyRate = if (bookingCount > 0) (bookingCount * 17.5f).coerceAtMost(100f) else 0f,
+            weekRevenue = if (isReal) totalPaidRevenue else (112400000L + totalPaidRevenue),
+            monthRevenue = if (isReal) totalPaidRevenue else (465800000L + totalPaidRevenue),
+            totalBookingsToday = totalServed,
+            roomOccupancyRate = if (totalServed > 0) (totalServed * 17.5f).coerceAtMost(100f) else 0f,
             topServices = topServices,
             revenueDistribution = revenueDistribution,
             topPerformers = topPerformers

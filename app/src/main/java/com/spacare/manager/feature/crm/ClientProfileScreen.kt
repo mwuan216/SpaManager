@@ -32,6 +32,14 @@ import com.spacare.manager.feature.crm.components.ClientFormDialog
 import com.spacare.manager.feature.crm.components.SessionPhotoProgressionCard
 import com.spacare.manager.feature.crm.components.TakeOrUploadPhotoDialog
 import com.spacare.manager.feature.crm.components.TreatmentPackageCard
+import android.graphics.Bitmap
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -46,7 +54,7 @@ fun ClientProfileScreen(
     onCheckoutClick: () -> Unit,
     onUpdateClient: (Client) -> Unit,
     onDeleteClient: (String) -> Unit,
-    onCheckInSession: (packageId: String) -> Unit,
+    onCheckInSession: (packageId: String, intervalDays: Int, nextDate: String?) -> Unit,
     onAddTreatmentPackage: (TreatmentPackage) -> Unit,
     onAddBeforeAfter: (BeforeAfterComparison) -> Unit = {},
     onAddAppointment: (Appointment) -> Unit = {},
@@ -58,6 +66,47 @@ fun ClientProfileScreen(
 ) {
     val context = LocalContext.current
     var showEditDialog by remember { mutableStateOf(false) }
+    var showAvatarChoiceDialog by remember { mutableStateOf(false) }
+
+    val avatarGalleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val dir = File(context.filesDir, "avatars").apply { if (!exists()) mkdirs() }
+                val destFile = File(dir, "avatar_${client.id}_${System.currentTimeMillis()}.jpg")
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    FileOutputStream(destFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                val localPath = Uri.fromFile(destFile).toString()
+                onUpdateClient(client.copy(avatarUrl = localPath))
+                Toast.makeText(context, "Đã cập nhật ảnh đại diện thành công!", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Lỗi khi lưu ảnh đại diện", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val avatarCameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            try {
+                val dir = File(context.filesDir, "avatars").apply { if (!exists()) mkdirs() }
+                val destFile = File(dir, "avatar_${client.id}_${System.currentTimeMillis()}.jpg")
+                FileOutputStream(destFile).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                }
+                val localPath = Uri.fromFile(destFile).toString()
+                onUpdateClient(client.copy(avatarUrl = localPath))
+                Toast.makeText(context, "Đã chụp và lưu ảnh đại diện thành công!", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Lỗi khi lưu ảnh chụp", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showAddPackageDialog by remember { mutableStateOf(false) }
     var showBookAppointmentDialog by remember { mutableStateOf(false) }
@@ -118,17 +167,53 @@ fun ClientProfileScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(64.dp)
-                                    .clip(CircleShape)
-                                    .background(SageGreenContainer),
-                                contentAlignment = Alignment.Center
+                                    .size(68.dp)
                             ) {
-                                Text(
-                                    text = client.fullName.split(" ").takeLast(2).map { it.first() }.joinToString(""),
-                                    style = MaterialTheme.typography.headlineMedium,
+                                Box(
+                                    modifier = Modifier
+                                        .size(68.dp)
+                                        .clip(CircleShape)
+                                        .background(SageGreenContainer)
+                                        .clickable { showAvatarChoiceDialog = true },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (!client.avatarUrl.isNullOrBlank()) {
+                                        AsyncImage(
+                                            model = client.avatarUrl,
+                                            contentDescription = client.fullName,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(CircleShape),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else {
+                                        Text(
+                                            text = client.fullName.split(" ").takeLast(2).map { it.first() }.joinToString(""),
+                                            style = MaterialTheme.typography.headlineMedium,
+                                            color = SageGreenPrimary,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                Surface(
+                                    shape = CircleShape,
                                     color = SageGreenPrimary,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                    shadowElevation = 3.dp,
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .align(Alignment.BottomEnd)
+                                        .clickable { showAvatarChoiceDialog = true }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.PhotoCamera,
+                                            contentDescription = "Đổi ảnh đại diện",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
                             }
 
                             Column(modifier = Modifier.weight(1f)) {
@@ -269,7 +354,10 @@ fun ClientProfileScreen(
                     TreatmentPackageCard(
                         pkg = pkg,
                         onUseSessionClick = {
-                            onCheckInSession(pkg.id)
+                            onCheckInSession(pkg.id, pkg.intervalDays, null)
+                        },
+                        onCheckInSessionWithCycle = { interval, nextDate ->
+                            onCheckInSession(pkg.id, interval, nextDate)
                         }
                     )
                 }
@@ -429,6 +517,7 @@ fun ClientProfileScreen(
     if (showAddPackageDialog) {
         var pkgName by remember { mutableStateOf("") }
         var totalSessions by remember { mutableStateOf("10") }
+        var selectedIntervalDays by remember { mutableStateOf(7) }
         var therapist by remember { mutableStateOf(technicians.firstOrNull()?.let { "KTV. ${it.name}" } ?: "") }
         val sessionPresets = listOf("5", "8", "10", "12", "15", "20")
 
@@ -519,6 +608,29 @@ fun ClientProfileScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
+                    // Chọn chu kỳ điều trị khuyến nghị
+                    Text(
+                        "Chu kỳ điều trị (khoảng cách giữa các buổi):",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = CharcoalTextSecondary
+                    )
+                    val cyclePresets = listOf(5, 7, 10, 14, 21, 30)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(cyclePresets) { d ->
+                            val isSelected = selectedIntervalDays == d
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedIntervalDays = d },
+                                label = { Text("$d ngày", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = SageGreenContainer,
+                                    selectedLabelColor = SageGreenPrimary
+                                )
+                            )
+                        }
+                    }
+
                     // Chọn nhanh KTV phụ trách
                     if (technicians.isNotEmpty()) {
                         Text(
@@ -567,6 +679,12 @@ fun ClientProfileScreen(
                         }
                         val expiryDateStr = sdf.format(cal.time)
 
+                        val nextCal = java.util.Calendar.getInstance().apply {
+                            time = now
+                            add(java.util.Calendar.DAY_OF_YEAR, selectedIntervalDays)
+                        }
+                        val nextRecommendedDateStr = sdf.format(nextCal.time)
+
                         val newPackage = TreatmentPackage(
                             id = "PKG-" + (1000..9999).random(),
                             name = pkgName.ifBlank { "Liệu Trình Chuyên Sâu Spa" },
@@ -575,7 +693,10 @@ fun ClientProfileScreen(
                             remainingSessions = sessions,
                             startDate = startDateStr,
                             expiryDate = expiryDateStr,
-                            assignedTherapist = therapist
+                            assignedTherapist = therapist,
+                            intervalDays = selectedIntervalDays,
+                            lastSessionDate = startDateStr,
+                            nextRecommendedDate = nextRecommendedDateStr
                         )
                         onAddTreatmentPackage(newPackage)
                         showAddPackageDialog = false
@@ -598,6 +719,93 @@ fun ClientProfileScreen(
     }
 
     // Modal Chụp / Tải ảnh tiến trình từng buổi
+    // Modal Tùy Chọn Đặt Ảnh Đại Diện Khách Hàng
+    if (showAvatarChoiceDialog) {
+        AlertDialog(
+            onDismissRequest = { showAvatarChoiceDialog = false },
+            containerColor = WarmBeigeSurface,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(SageGreenContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = SageGreenPrimary, modifier = Modifier.size(20.dp))
+                    }
+                    Column {
+                        Text(
+                            text = "Ảnh Đại Diện Khách Hàng",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = CharcoalTextPrimary
+                        )
+                        Text(
+                            text = client.fullName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = CharcoalTextSecondary
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            showAvatarChoiceDialog = false
+                            avatarCameraLauncher.launch(null)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SageGreenPrimary,
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Chụp ảnh mới từ Camera")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            showAvatarChoiceDialog = false
+                            avatarGalleryLauncher.launch("image/*")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Chọn ảnh từ Thư viện máy")
+                    }
+
+                    if (!client.avatarUrl.isNullOrBlank()) {
+                        TextButton(
+                            onClick = {
+                                onUpdateClient(client.copy(avatarUrl = null))
+                                showAvatarChoiceDialog = false
+                                Toast.makeText(context, "Đã xóa ảnh đại diện", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = AllergyAlertRed),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Xóa ảnh đại diện")
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showAvatarChoiceDialog = false }) {
+                    Text("Đóng", color = CharcoalTextSecondary)
+                }
+            }
+        )
+    }
+
     if (showAddSessionPhotoDialog) {
         TakeOrUploadPhotoDialog(
             existingPhoto = photoToRetake,

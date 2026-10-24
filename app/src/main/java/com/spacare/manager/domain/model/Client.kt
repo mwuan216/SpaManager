@@ -30,7 +30,10 @@ data class TreatmentPackage(
     val remainingSessions: Int,
     val startDate: String,
     val expiryDate: String,
-    val assignedTherapist: String
+    val assignedTherapist: String,
+    val intervalDays: Int = 7, // Chu kỳ điều trị (số ngày giữa các buổi, ví dụ 7, 10 ngày)
+    val lastSessionDate: String? = null, // Ngày làm buổi gần nhất (dd/MM/yyyy)
+    val nextRecommendedDate: String? = null // Ngày dự kiến làm buổi tiếp theo (dd/MM/yyyy)
 )
 
 data class BeforeAfterComparison(

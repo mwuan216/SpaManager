@@ -25,6 +25,8 @@ import com.spacare.manager.core.designsystem.theme.*
 import com.spacare.manager.domain.model.Client
 import com.spacare.manager.domain.model.VipTier
 import com.spacare.manager.feature.crm.components.ClientFormDialog
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -264,7 +266,7 @@ fun ClientSummaryCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Avatar chữ viết tắt
+                // Avatar chữ viết tắt hoặc ảnh đại diện
                 Box(
                     modifier = Modifier
                         .size(46.dp)
@@ -272,12 +274,23 @@ fun ClientSummaryCard(
                         .background(SageGreenContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = client.fullName.split(" ").takeLast(2).map { it.first() }.joinToString(""),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = SageGreenPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (!client.avatarUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = client.avatarUrl,
+                            contentDescription = client.fullName,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text(
+                            text = client.fullName.split(" ").takeLast(2).map { it.first() }.joinToString(""),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = SageGreenPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))

@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -83,6 +84,40 @@ fun CalendarSchedulerScreen(
     var showCalendarDatePicker by remember { mutableStateOf(false) }
 
     var selectedStaffFilter by remember { mutableStateOf<String?>(null) }
+
+    val clientsNeedingRoutineReminder = remember(clients) {
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val now = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val list = mutableListOf<Triple<Client, TreatmentPackage, String>>()
+        clients.forEach { client ->
+            client.treatmentPackages.filter { it.remainingSessions > 0 && !it.nextRecommendedDate.isNullOrBlank() }.forEach { pkg ->
+                try {
+                    val nextDate = sdf.parse(pkg.nextRecommendedDate!!)
+                    if (nextDate != null) {
+                        val diffDays = ((nextDate.time - now) / (1000 * 60 * 60 * 24)).toInt()
+                        if (diffDays in -7..1) {
+                            val statusText = when {
+                                diffDays < 0 -> "Quá hạn ${-diffDays} ngày"
+                                diffDays == 0 -> "Hôm nay"
+                                diffDays == 1 -> "Ngày mai (${pkg.nextRecommendedDate})"
+                                else -> "Trong ${diffDays} ngày"
+                            }
+                            list.add(Triple(client, pkg, statusText))
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore parse error
+                }
+            }
+        }
+        list
+    }
     var selectedRoomFilter by remember { mutableStateOf<String?>(null) }
 
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -260,6 +295,66 @@ fun CalendarSchedulerScreen(
                                 color = if (isSelected) Color.White else CharcoalTextPrimary
                             )
                         }
+                    }
+                }
+            }
+
+            // Banner Nhắc Lịch Liệu Trình (Chu kỳ 7-10 ngày)
+            if (clientsNeedingRoutineReminder.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { showNotificationDialog = true },
+                    color = SageGreenContainer,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(SageGreenPrimary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.NotificationsActive,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = "🔔 Có ${clientsNeedingRoutineReminder.size} khách cần nhắc lịch liệu trình",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SageGreenPrimary
+                                )
+                                Text(
+                                    text = "Chu kỳ 7-10 ngày • Chạm để xem danh sách & gọi/nhắn tin",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = CharcoalTextSecondary,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = SageGreenPrimary
+                        )
                     }
                 }
             }
@@ -476,6 +571,7 @@ fun CalendarSchedulerScreen(
         AppointmentNotificationCenterDialog(
             appointments = appointments,
             selectedDate = selectedDate,
+            routineReminders = clientsNeedingRoutineReminder,
             onDismissRequest = { showNotificationDialog = false },
             onTriggerNotification = { appt ->
                 NotificationHelper.showAppointmentApproachingNotification(
@@ -1606,6 +1702,7 @@ fun AppointmentDetailDialog(
 fun AppointmentNotificationCenterDialog(
     appointments: List<Appointment>,
     selectedDate: String,
+    routineReminders: List<Triple<Client, TreatmentPackage, String>> = emptyList(),
     onDismissRequest: () -> Unit,
     onTriggerNotification: (Appointment) -> Unit
 ) {
@@ -1732,6 +1829,121 @@ fun AppointmentNotificationCenterDialog(
                             label = { Text(label, fontSize = 12.sp) },
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                }
+
+                if (routineReminders.isNotEmpty()) {
+                    HorizontalDivider(color = WarmBeigeBorder)
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = SageGreenPrimary, modifier = Modifier.size(18.dp))
+                        Text(
+                            text = "Khách đến hạn làm liệu trình (${routineReminders.size} khách):",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = SageGreenPrimary
+                        )
+                    }
+
+                    routineReminders.forEach { (c, pkg, statusText) ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = WarmBeigeSurfaceVariant,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, WarmBeigeBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(c.fullName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = CharcoalTextPrimary)
+                                        Text("${pkg.name} • Còn ${pkg.remainingSessions} buổi", style = MaterialTheme.typography.bodySmall, color = CharcoalTextSecondary, fontSize = 11.sp)
+                                    }
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (statusText.contains("Quá hạn")) AllergyAlertContainer else SageGreenContainer
+                                    ) {
+                                        Text(
+                                            text = statusText,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (statusText.contains("Quá hạn")) AllergyAlertRed else SageGreenPrimary,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            try {
+                                                val intent = android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:${c.phone}"))
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {}
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(13.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Gọi", fontSize = 11.sp)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            try {
+                                                val smsText = "Dạ chào chị ${c.fullName}, Spa xin phép nhắc chị sắp đến lịch chăm sóc da buổi tiếp theo của gói ${pkg.name}. Chị nhắn lại em để em giữ lịch cho mình nhé ạ!"
+                                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("sms:${c.phone}")).apply {
+                                                    putExtra("sms_body", smsText)
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {}
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(13.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Nhắn tin", fontSize = 11.sp)
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            NotificationHelper.showRoutineReminderNotification(
+                                                context = context,
+                                                packageId = pkg.id,
+                                                clientName = c.fullName,
+                                                clientPhone = c.phone,
+                                                packageName = pkg.name,
+                                                intervalDays = pkg.intervalDays,
+                                                remainingSessions = pkg.remainingSessions,
+                                                recommendedDate = pkg.nextRecommendedDate ?: "Hôm nay"
+                                            )
+                                            Toast.makeText(context, "Đã gửi thông báo nhắc lịch cho ${c.fullName}!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary, contentColor = Color.White),
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(13.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Báo máy", fontSize = 11.sp)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
