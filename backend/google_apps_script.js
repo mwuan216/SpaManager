@@ -416,8 +416,10 @@ function processKeyActivation(key, deviceId, deviceName, isActivateAction) {
   const status = (rowData[COL_STATUS - 1] || "AVAILABLE").toString().trim().toUpperCase();
   const linkedDeviceId = (rowData[COL_DEVICE_ID - 1] || "").toString().trim();
   const linkedDeviceName = (rowData[COL_DEVICE_NAME - 1] || "").toString().trim();
-  const activatedAt = (rowData[COL_ACTIVATED_AT - 1] || "").toString().trim();
-  let expiresAt = (rowData[COL_EXPIRES_AT - 1] || "").toString().trim();
+  const rawActivated = rowData[COL_ACTIVATED_AT - 1];
+  const rawExpires = rowData[COL_EXPIRES_AT - 1];
+  const activatedAt = formatCellDate(rawActivated);
+  let expiresAt = formatCellDate(rawExpires);
 
   // 2. Key bị quản trị viên khóa / thu hồi
   if (status === "BLOCKED") {
@@ -433,7 +435,7 @@ function processKeyActivation(key, deviceId, deviceName, isActivateAction) {
   if (status === "ACTIVATED") {
     // A. Nếu thiết bị gửi lên TRÙNG với thiết bị đã đăng ký (Kích hoạt lại / Khôi phục)
     if (linkedDeviceId === deviceId) {
-      const remain = calculateRemainingTime(expiresAt, isLifetime);
+      const remain = calculateRemainingTime(rawExpires, isLifetime);
       if (remain.isExpired) {
         sheet.getRange(foundRow, COL_STATUS).setValue("EXPIRED");
         return {
@@ -595,20 +597,69 @@ function calculateExpirationDate(fromDate, plan) {
 /**
  * Chuyển chuỗi dd/MM/yyyy HH:mm sang đối tượng Date chuẩn
  */
-function parseDateStringToDate(dateStr) {
-  if (!dateStr) return null;
+/**
+ * Định dạng giá trị ô trong Google Sheets thành chuỗi dd/MM/yyyy HH:mm
+ * Xử lý hoàn hảo cả trường hợp ô là đối tượng Date hay chuỗi String
+ */
+function formatCellDate(cellVal) {
+  if (!cellVal) return "";
+  if (cellVal instanceof Date && !isNaN(cellVal.getTime())) {
+    return Utilities.formatDate(cellVal, "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
+  }
+  const str = cellVal.toString().trim();
+  if (str.toLowerCase().indexOf("vĩnh viễn") >= 0) return "Vĩnh viễn";
+  const parsed = parseDateStringToDate(str);
+  if (parsed && !isNaN(parsed.getTime())) {
+    return Utilities.formatDate(parsed, "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm");
+  }
+  return str;
+}
+
+/**
+ * Chuyển đổi mọi định dạng chuỗi / đối tượng Date sang đối tượng Date chuẩn
+ */
+function parseDateStringToDate(val) {
+  if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
   try {
-    const clean = dateStr.trim();
+    const clean = val.toString().trim();
     if (clean.toLowerCase().indexOf("vĩnh viễn") >= 0) return null;
+
+    // 1. dd/MM/yyyy với tùy chọn HH:mm[:ss]
     const parts = clean.split(" ");
     const dParts = parts[0].split("/");
-    const tParts = (parts[1] || "00:00").split(":");
-    const day = parseInt(dParts[0]);
-    const month = parseInt(dParts[1]) - 1;
-    const year = parseInt(dParts[2]);
-    const hour = parseInt(tParts[0]);
-    const min = parseInt(tParts[1]);
-    return new Date(year, month, day, hour, min);
+    if (dParts.length === 3) {
+      const day = parseInt(dParts[0]);
+      const month = parseInt(dParts[1]) - 1;
+      const year = parseInt(dParts[2]);
+      const tParts = (parts[1] || "23:59").split(":");
+      const hour = parseInt(tParts[0]);
+      const min = parseInt(tParts[1]);
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        return new Date(year, month, day, isNaN(hour) ? 23 : hour, isNaN(min) ? 59 : min);
+      }
+    }
+
+    // 2. yyyy-MM-dd
+    const ymdParts = parts[0].split("-");
+    if (ymdParts.length === 3) {
+      const year = parseInt(ymdParts[0]);
+      const month = parseInt(ymdParts[1]) - 1;
+      const day = parseInt(ymdParts[2]);
+      const tParts = (parts[1] || "23:59").split(":");
+      const hour = parseInt(tParts[0]);
+      const min = parseInt(tParts[1]);
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        return new Date(year, month, day, isNaN(hour) ? 23 : hour, isNaN(min) ? 59 : min);
+      }
+    }
+
+    // 3. Fallback Date.parse native
+    const nativeParsed = new Date(clean);
+    if (!isNaN(nativeParsed.getTime())) {
+      return nativeParsed;
+    }
+    return null;
   } catch (e) {
     return null;
   }
@@ -616,9 +667,10 @@ function parseDateStringToDate(dateStr) {
 
 /**
  * Tính số ngày và giờ còn lại chính xác dựa trên ngày hết hạn cố định
+ * Hỗ trợ cả cellVal là Date object lẫn String
  */
-function calculateRemainingTime(expiresAtStr, isLifetime) {
-  if (isLifetime || !expiresAtStr || expiresAtStr.indexOf("Vĩnh viễn") >= 0) {
+function calculateRemainingTime(cellVal, isLifetime) {
+  if (isLifetime || !cellVal || cellVal.toString().indexOf("Vĩnh viễn") >= 0) {
     return {
       isExpired: false,
       daysRemaining: 0,
@@ -627,8 +679,14 @@ function calculateRemainingTime(expiresAtStr, isLifetime) {
     };
   }
 
-  const expDate = parseDateStringToDate(expiresAtStr);
-  if (!expDate) {
+  let expDate = null;
+  if (cellVal instanceof Date && !isNaN(cellVal.getTime())) {
+    expDate = cellVal;
+  } else {
+    expDate = parseDateStringToDate(cellVal);
+  }
+
+  if (!expDate || isNaN(expDate.getTime())) {
     return {
       isExpired: false,
       daysRemaining: 0,
@@ -706,12 +764,14 @@ function processLicenseRestore(deviceId) {
 
   const key = (matchedData[COL_KEY - 1] || "").toString().trim().toUpperCase();
   const plan = (matchedData[COL_PLAN - 1] || "LIFETIME").toString().trim().toUpperCase();
-  const activatedAt = (matchedData[COL_ACTIVATED_AT - 1] || "").toString().trim();
-  const expiresAt = (matchedData[COL_EXPIRES_AT - 1] || "").toString().trim();
+  const rawActivated = matchedData[COL_ACTIVATED_AT - 1];
+  const rawExpires = matchedData[COL_EXPIRES_AT - 1];
+  const activatedAt = formatCellDate(rawActivated);
+  const expiresAt = formatCellDate(rawExpires);
   const isLifetime = isPlanLifetime(plan);
 
   // Tính thời gian còn lại dựa trên ngày hết hạn cố định lúc kích hoạt ban đầu
-  const remain = calculateRemainingTime(expiresAt, isLifetime);
+  const remain = calculateRemainingTime(rawExpires, isLifetime);
 
   if (remain.isExpired) {
     sheet.getRange(matchedRow, COL_STATUS).setValue("EXPIRED");

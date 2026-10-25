@@ -137,6 +137,29 @@ function formatVnDate(date) {
     return `${day}/${month}/${year} ${hours}:${mins}`;
 }
 
+function parseVnDateToMs(dateStr) {
+    if (!dateStr || dateStr.toLowerCase().indexOf("vĩnh viễn") >= 0) return 0;
+    try {
+        const clean = dateStr.trim();
+        const parts = clean.split(" ");
+        const dParts = parts[0].split("/");
+        if (dParts.length === 3) {
+            const day = parseInt(dParts[0]);
+            const month = parseInt(dParts[1]) - 1;
+            const year = parseInt(dParts[2]);
+            const tParts = (parts[1] || "23:59").split(":");
+            const hour = parseInt(tParts[0]);
+            const min = parseInt(tParts[1]);
+            const d = new Date(Date.UTC(year, month, day, isNaN(hour) ? 23 : hour, isNaN(min) ? 59 : min) - 7 * 3600 * 1000);
+            return isNaN(d.getTime()) ? 0 : d.getTime();
+        }
+        const d = new Date(clean);
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+    } catch (e) {
+        return 0;
+    }
+}
+
 function getPlanDurationDays(plan) {
     const p = (plan || "").toString().trim().toUpperCase();
     switch (p) {
@@ -616,8 +639,13 @@ export default {
                 const isLifetime = isPlanProLifetime(saved.plan);
                 const nowMs = Date.now();
 
+                let expiresMs = saved.expiresMs || 0;
+                if (!isLifetime && (!expiresMs || expiresMs <= 0) && saved.expiresAt) {
+                    expiresMs = parseVnDateToMs(saved.expiresAt);
+                }
+
                 // Kiểm tra hết hạn
-                if (!isLifetime && saved.expiresMs && nowMs > saved.expiresMs) {
+                if (!isLifetime && expiresMs > 0 && nowMs > expiresMs) {
                     return jsonResponse({
                         success: false,
                         restored: false,
@@ -626,7 +654,7 @@ export default {
                     });
                 }
 
-                const diffMs = isLifetime ? 0 : Math.max(0, (saved.expiresMs || nowMs) - nowMs);
+                const diffMs = isLifetime ? 0 : Math.max(0, (expiresMs || nowMs) - nowMs);
                 const daysRemaining = isLifetime ? 0 : Math.floor(diffMs / (24 * 3600 * 1000));
                 const hoursRemaining = isLifetime ? 0 : Math.floor((diffMs % (24 * 3600 * 1000)) / (3600 * 1000));
 
