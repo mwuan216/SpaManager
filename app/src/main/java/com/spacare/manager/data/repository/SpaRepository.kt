@@ -1615,7 +1615,7 @@ class SpaRepository(context: Context? = null) {
             updateAppointmentStatus(apptId, AppointmentStatus.COMPLETED)
         } ?: run {
             val matchedAppt = _appointments.value.find {
-                it.clientName == current.clientName && it.date == dateOnly &&
+                it.clientName.equals(current.clientName, ignoreCase = true) &&
                 it.status != AppointmentStatus.COMPLETED && it.status != AppointmentStatus.CANCELLED
             }
             if (matchedAppt != null) {
@@ -1628,17 +1628,22 @@ class SpaRepository(context: Context? = null) {
             ?: current.appointmentId?.let { id -> _appointments.value.find { it.id == id }?.staffName }
             ?: "KTV Phục Vụ"
 
-        val txDate = current.appointmentId?.let { id ->
-            _appointments.value.find { it.id == id }?.date
-        } ?: dateOnly
+        // Ngày ghi nhận giao dịch tài chính luôn là ngày thực tế xác nhận thu tiền (dateOnly)
+        val txDate = dateOnly
 
-        // Lưu vào lịch sử giao dịch hóa đơn
+        // Cập nhật hoặc lưu mới vào lịch sử giao dịch hóa đơn
+        val currentTxList = _transactions.value.toMutableList()
+        val existingIndex = currentTxList.indexOfFirst {
+            it.invoiceCode == current.invoiceCode ||
+            (current.appointmentId != null && it.clientName.equals(current.clientName, ignoreCase = true) && !it.isPaid)
+        }
+
         val newTx = InvoiceTransactionRecord(
-            id = "TX-${System.currentTimeMillis()}",
+            id = if (existingIndex != -1) currentTxList[existingIndex].id else "TX-${System.currentTimeMillis()}",
             invoiceCode = current.invoiceCode,
             clientName = current.clientName,
             clientPhone = current.clientPhone,
-            serviceName = current.items.joinToString(", ") { it.name },
+            serviceName = current.items.joinToString(", ") { it.name }.ifBlank { "Dịch Vụ Spa" },
             technicianName = assignedTech,
             time = timeOnly,
             date = txDate,
@@ -1646,7 +1651,14 @@ class SpaRepository(context: Context? = null) {
             paymentMethod = "VietQR Chuyển Khoản",
             isPaid = true
         )
-        _transactions.value = listOf(newTx) + _transactions.value
+
+        if (existingIndex != -1) {
+            currentTxList[existingIndex] = newTx
+            _transactions.value = currentTxList
+        } else {
+            _transactions.value = listOf(newTx) + currentTxList
+        }
+
         repositoryScope.launch {
             database?.transactionDao()?.insert(TransactionEntity.fromDomain(newTx))
         }
@@ -1754,7 +1766,12 @@ class SpaRepository(context: Context? = null) {
         // Doanh thu từ các lịch hẹn đã hoàn thành mà chưa có giao dịch hóa đơn đi kèm (ví dụ thanh toán tiền mặt trực tiếp)
         val completedApptsWithoutTx = dayAppts.filter { appt ->
             appt.status == AppointmentStatus.COMPLETED && appt.price > 0L &&
-            dayTxs.none { it.clientPhone == appt.clientPhone || it.clientName == appt.clientName }
+            _transactions.value.none { tx ->
+                tx.isPaid && (
+                    (tx.clientPhone.isNotBlank() && tx.clientPhone == appt.clientPhone) ||
+                    tx.clientName.equals(appt.clientName, ignoreCase = true)
+                )
+            }
         }
         val totalActualDayRevenue = txRevenue + completedApptsWithoutTx.sumOf { it.price }
 
@@ -1762,7 +1779,10 @@ class SpaRepository(context: Context? = null) {
             totalActualDayRevenue
         } else {
             if (dayAppts.isNotEmpty()) {
-                dayAppts.sumOf { it.price } + 8200000L + txRevenue
+                val apptsWithoutTx = dayAppts.filter { appt ->
+                    dayTxs.none { (it.clientPhone.isNotBlank() && it.clientPhone == appt.clientPhone) || it.clientName.equals(appt.clientName, ignoreCase = true) }
+                }
+                apptsWithoutTx.sumOf { it.price } + 8200000L + txRevenue
             } else {
                 totalActualDayRevenue
             }
@@ -1854,7 +1874,13 @@ class SpaRepository(context: Context? = null) {
             )
         }
 
-        val totalServed = bookingCount + dayTxs.filter { it.clientName.contains("QR Cửa Hàng") }.size
+        val txsNotCoveredInAppts = dayTxs.filter { tx ->
+            dayAppts.none { appt ->
+                (appt.clientPhone.isNotBlank() && appt.clientPhone == tx.clientPhone) ||
+                appt.clientName.equals(tx.clientName, ignoreCase = true)
+            }
+        }
+        val totalServed = bookingCount + txsNotCoveredInAppts.size
 
         return DashboardMetrics(
             todayRevenue = dayRevenue,

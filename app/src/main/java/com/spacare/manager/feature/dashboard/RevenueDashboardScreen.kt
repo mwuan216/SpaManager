@@ -85,6 +85,10 @@ fun RevenueDashboardScreen(
     val dayTransactions = remember(transactions, selectedDate) {
         transactions.filter { it.date == selectedDate }
     }
+    var showAllTransactions by remember { mutableStateOf(false) }
+    val displayedTransactions = remember(transactions, dayTransactions, showAllTransactions) {
+        if (showAllTransactions) transactions else dayTransactions
+    }
 
     Scaffold(
         topBar = {
@@ -410,44 +414,103 @@ fun RevenueDashboardScreen(
 
                             Surface(
                                 shape = CircleShape,
-                                color = if (dayTransactions.isNotEmpty()) SageGreenContainer else WarmBeigeSurfaceVariant
+                                color = if (displayedTransactions.isNotEmpty()) SageGreenContainer else WarmBeigeSurfaceVariant
                             ) {
                                 Text(
-                                    text = "${dayTransactions.size} đơn",
+                                    text = "${displayedTransactions.size} đơn",
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (dayTransactions.isNotEmpty()) SageGreenPrimary else CharcoalTextMuted
+                                    color = if (displayedTransactions.isNotEmpty()) SageGreenPrimary else CharcoalTextMuted
                                 )
                             }
                         }
 
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = !showAllTransactions,
+                                onClick = { showAllTransactions = false },
+                                label = {
+                                    Text(
+                                        text = "Ngày $selectedDate (${dayTransactions.size})",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (!showAllTransactions) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = SageGreenContainer,
+                                    selectedLabelColor = SageGreenPrimary
+                                )
+                            )
+                            FilterChip(
+                                selected = showAllTransactions,
+                                onClick = { showAllTransactions = true },
+                                label = {
+                                    Text(
+                                        text = "Tất cả giao dịch (${transactions.size})",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (showAllTransactions) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = SageGreenContainer,
+                                    selectedLabelColor = SageGreenPrimary
+                                )
+                            )
+                        }
+
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Danh sách hóa đơn và giao dịch phát sinh trong ngày $selectedDate:",
+                            text = if (showAllTransactions) {
+                                "Toàn bộ ${transactions.size} hóa đơn & giao dịch trong hệ thống (mới nhất xếp trước):"
+                            } else {
+                                "Danh sách hóa đơn và giao dịch phát sinh trong ngày $selectedDate:"
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = CharcoalTextSecondary
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        if (dayTransactions.isEmpty()) {
+                        if (displayedTransactions.isEmpty()) {
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp),
                                 color = WarmBeigeSurfaceVariant
                             ) {
-                                Text(
-                                    text = "Chưa có hóa đơn hoặc giao dịch nào được ghi nhận cho ngày $selectedDate.",
-                                    modifier = Modifier.padding(14.dp),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = CharcoalTextMuted,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                )
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = if (showAllTransactions) "Chưa có giao dịch nào được ghi nhận trong hệ thống." else "Chưa có hóa đơn hoặc giao dịch nào được ghi nhận cho ngày $selectedDate.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextMuted,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    if (!showAllTransactions && transactions.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        TextButton(onClick = { showAllTransactions = true }) {
+                                            Text(
+                                                text = "Xem tất cả ${transactions.size} giao dịch gần đây →",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = SageGreenPrimary
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         } else {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                dayTransactions.forEach { tx ->
+                                displayedTransactions.forEach { tx ->
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(10.dp),
@@ -471,7 +534,7 @@ fun RevenueDashboardScreen(
                                                         color = SageGreenPrimary
                                                     )
                                                     Text(
-                                                        text = "• ${tx.time}",
+                                                        text = "• ${tx.date} ${tx.time}",
                                                         style = MaterialTheme.typography.bodySmall,
                                                         color = CharcoalTextMuted
                                                     )

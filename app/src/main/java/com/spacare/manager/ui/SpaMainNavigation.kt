@@ -120,6 +120,9 @@ fun SpaMainApp(
                             if (destination == SpaNavDestination.CHECKOUT) {
                                 checkoutFromAppointment = false
                             }
+                            if (destination == SpaNavDestination.DASHBOARD) {
+                                selectedDashboardDate = todayDateStr
+                            }
                             currentDestination = destination
                         },
                         icon = {
@@ -271,9 +274,11 @@ fun SpaMainApp(
                     },
                     onConfirmPayment = {
                         repository.markInvoiceAsPaid()
+                        selectedDashboardDate = todayDateStr
                     },
                     onConfirmStorePayment = { amount, memo ->
                         repository.recordStoreQrPayment(amount, memo)
+                        selectedDashboardDate = todayDateStr
                     },
                     onResetInvoice = {
                         repository.resetInvoice()
