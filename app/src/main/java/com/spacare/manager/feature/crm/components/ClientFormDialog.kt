@@ -1,5 +1,6 @@
-import androidx.compose.material.icons.automirrored.filled.Chat
 package com.spacare.manager.feature.crm.components
+
+import androidx.compose.material.icons.automirrored.filled.Chat
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
