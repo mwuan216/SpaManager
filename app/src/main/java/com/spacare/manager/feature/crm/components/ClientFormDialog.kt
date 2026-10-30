@@ -1,3 +1,4 @@
+import androidx.compose.material.icons.automirrored.filled.Chat
 package com.spacare.manager.feature.crm.components
 
 import androidx.compose.foundation.layout.*
@@ -87,12 +88,13 @@ fun ClientFormDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Email
+                // Facebook / Zalo
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email liên hệ") },
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = SageGreenPrimary) },
+                    label = { Text("Facebook / Zalo") },
+                    placeholder = { Text("Link FB hoặc SĐT Zalo") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, tint = SageGreenPrimary) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.small,
                     singleLine = true

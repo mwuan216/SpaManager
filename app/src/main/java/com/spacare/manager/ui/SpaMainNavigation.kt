@@ -227,6 +227,21 @@ fun SpaMainApp(
                         onUpdatePackageCycle = { packageId, intervalDays, nextDate ->
                             repository.updatePackageCycle(selectedClient.id, packageId, intervalDays, nextDate)
                         },
+                        onDeleteTreatmentPackage = { packageId ->
+                            repository.deleteTreatmentPackage(selectedClient.id, packageId)
+                        },
+                        onDeleteServiceRecord = { srvId ->
+                            repository.deleteServiceRecord(selectedClient.id, srvId)
+                        },
+                        onDeleteSessionPhoto = { photoId ->
+                            repository.deleteSessionPhoto(selectedClient.id, photoId)
+                        },
+                        onDeleteBeforeAfter = { compId ->
+                            repository.deleteBeforeAfter(selectedClient.id, compId)
+                        },
+                        onAddServiceRecord = { record ->
+                            repository.addServiceRecord(selectedClient.id, record)
+                        },
                         onAddBeforeAfter = { record ->
                             repository.addBeforeAfter(selectedClient.id, record)
                         },
@@ -300,6 +315,9 @@ fun SpaMainApp(
                     transactions = transactions,
                     onDateSelected = { newDate ->
                         selectedDashboardDate = newDate
+                    },
+                    onDeleteTransaction = { txId ->
+                        repository.deleteTransaction(txId)
                     },
                     modifier = screenModifier
                 )

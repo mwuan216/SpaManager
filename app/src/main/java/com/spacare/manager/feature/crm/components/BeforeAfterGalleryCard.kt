@@ -44,8 +44,10 @@ import java.util.Locale
 fun BeforeAfterGalleryCard(
     comparison: BeforeAfterComparison,
     onAddPhotoClick: () -> Unit = {},
+    onDeleteComparisonClick: ((BeforeAfterComparison) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    var showDeleteComparisonDialog by remember { mutableStateOf(false) }
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium, // 16.dp
@@ -107,19 +109,40 @@ fun BeforeAfterGalleryCard(
                     }
                 }
 
-                IconButton(
-                    onClick = onAddPhotoClick,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(WarmBeigeSurfaceVariant)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AddAPhoto,
-                        contentDescription = "Chụp/Thêm ảnh",
-                        tint = SageGreenPrimary,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    if (onDeleteComparisonClick != null) {
+                        IconButton(
+                            onClick = { showDeleteComparisonDialog = true },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(WarmBeigeSurfaceVariant)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "Xóa so sánh",
+                                tint = AllergyAlertRed,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = onAddPhotoClick,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(WarmBeigeSurfaceVariant)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AddAPhoto,
+                            contentDescription = "Chụp/Thêm ảnh",
+                            tint = SageGreenPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
@@ -253,18 +276,58 @@ fun BeforeAfterGalleryCard(
             }
         }
     }
+
+    if (showDeleteComparisonDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteComparisonDialog = false },
+            title = { Text("Xác nhận xóa so sánh") },
+            text = { Text("Bạn có chắc chắn muốn xóa bản so sánh Trước & Sau này không?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteComparisonClick?.invoke(comparison)
+                        showDeleteComparisonDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AllergyAlertRed)
+                ) {
+                    Text("Xóa", color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteComparisonDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
 }
 
 // =========================================================================
 // THẺ TIẾN TRÌNH ẢNH THEO TỪNG BUỔI - LƯỚT NGANG & CHO PHÉP CHỤP LẠI
 // =========================================================================
 
-fun saveBitmapToTempFile(context: Context, bitmap: Bitmap): String {
-    val file = File(context.cacheDir, "spa_session_${System.currentTimeMillis()}.jpg")
+fun saveBitmapToInternalFile(context: Context, bitmap: Bitmap): String {
+    val dir = File(context.filesDir, "session_photos").apply { if (!exists()) mkdirs() }
+    val file = File(dir, "spa_session_${System.currentTimeMillis()}.jpg")
     FileOutputStream(file).use { out ->
         bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
     }
     return Uri.fromFile(file).toString()
+}
+
+fun copyUriToInternalFile(context: Context, sourceUri: Uri): String {
+    return try {
+        val dir = File(context.filesDir, "session_photos").apply { if (!exists()) mkdirs() }
+        val file = File(dir, "spa_session_${System.currentTimeMillis()}.jpg")
+        context.contentResolver.openInputStream(sourceUri)?.use { input ->
+            FileOutputStream(file).use { output ->
+                input.copyTo(output)
+            }
+        }
+        Uri.fromFile(file).toString()
+    } catch (e: Exception) {
+        sourceUri.toString()
+    }
 }
 
 @Composable
@@ -272,8 +335,10 @@ fun SessionPhotoProgressionCard(
     photos: List<SessionPhotoRecord>,
     onAddPhotoClick: () -> Unit,
     onRetakePhotoClick: (SessionPhotoRecord) -> Unit,
+    onDeletePhotoClick: ((SessionPhotoRecord) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    var photoToDelete by remember { mutableStateOf<SessionPhotoRecord?>(null) }
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -472,30 +537,50 @@ fun SessionPhotoProgressionCard(
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                // Nút Chụp lại / Đổi ảnh cho buổi này
-                                OutlinedButton(
-                                    onClick = { onRetakePhotoClick(photo) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(36.dp),
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SageGreenPrimary)
+                                // Nút Đổi ảnh & Xóa ảnh buổi
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CameraAlt,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(15.dp),
-                                        tint = SageGreenPrimary
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "Chụp lại / Đổi ảnh",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
+                                    OutlinedButton(
+                                        onClick = { onRetakePhotoClick(photo) },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(36.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SageGreenPrimary)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CameraAlt,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = SageGreenPrimary
+                                        )
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Text(
+                                            text = "Đổi ảnh",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
+                                    }
+
+                                    if (onDeletePhotoClick != null) {
+                                        IconButton(
+                                            onClick = { photoToDelete = photo },
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.DeleteOutline,
+                                                contentDescription = "Xóa ảnh buổi",
+                                                tint = AllergyAlertRed,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -538,6 +623,30 @@ fun SessionPhotoProgressionCard(
             }
         }
     }
+
+    photoToDelete?.let { targetPhoto ->
+        AlertDialog(
+            onDismissRequest = { photoToDelete = null },
+            title = { Text("Xác nhận xóa ảnh") },
+            text = { Text("Bạn có chắc chắn muốn xóa ảnh của ${if (targetPhoto.sessionNumber == 0) "Trước điều trị" else "Buổi " + targetPhoto.sessionNumber} không?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeletePhotoClick?.invoke(targetPhoto)
+                        photoToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AllergyAlertRed)
+                ) {
+                    Text("Xóa ảnh", color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { photoToDelete = null }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
 }
 
 // =========================================================================
@@ -563,24 +672,25 @@ fun TakeOrUploadPhotoDialog(
         )
     }
 
-    // Launcher mở Thư viện ảnh
+    // Launcher mở Thư viện ảnh (lưu vĩnh viễn vào filesDir)
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            imageUrl = uri.toString()
-            Toast.makeText(context, "Đã chọn ảnh từ thư viện!", Toast.LENGTH_SHORT).show()
+            val fileUri = copyUriToInternalFile(context, uri)
+            imageUrl = fileUri
+            Toast.makeText(context, "Đã chọn và lưu ảnh từ thư viện!", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // Launcher mở Camera chụp ảnh trực tiếp
+    // Launcher mở Camera chụp ảnh trực tiếp (lưu vĩnh viễn vào filesDir)
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
         if (bitmap != null) {
-            val fileUri = saveBitmapToTempFile(context, bitmap)
+            val fileUri = saveBitmapToInternalFile(context, bitmap)
             imageUrl = fileUri
-            Toast.makeText(context, "Đã chụp ảnh thành công từ Camera!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Đã chụp và lưu ảnh thành công từ Camera!", Toast.LENGTH_SHORT).show()
         }
     }
 

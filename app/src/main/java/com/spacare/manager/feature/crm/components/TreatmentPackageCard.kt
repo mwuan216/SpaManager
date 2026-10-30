@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,10 +41,12 @@ fun TreatmentPackageCard(
     onUseSessionClick: () -> Unit = {},
     onCheckInSessionWithCycle: ((intervalDays: Int, nextDate: String) -> Unit)? = null,
     onUpdatePackageCycle: ((intervalDays: Int, nextDate: String) -> Unit)? = null,
+    onDeletePackage: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showCheckInDialog by remember { mutableStateOf(false) }
     var showEditCycleDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -79,7 +82,7 @@ fun TreatmentPackageCard(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    Column {
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
                         Text(
                             text = pkg.name,
                             style = MaterialTheme.typography.titleMedium,
@@ -90,6 +93,20 @@ fun TreatmentPackageCard(
                             text = "KTV phụ trách: ${pkg.assignedTherapist}",
                             style = MaterialTheme.typography.bodySmall,
                             color = CharcoalTextSecondary
+                        )
+                    }
+                }
+
+                if (onDeletePackage != null) {
+                    IconButton(
+                        onClick = { showDeleteDialog = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Xóa gói liệu trình",
+                            tint = AllergyAlertRed,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -315,6 +332,30 @@ fun TreatmentPackageCard(
     }
 
     // Modal Điểm Danh Buổi & Thiết Lập Chu Kỳ Lịch Tiếp Theo (Set thủ công hoặc Preset)
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Xác nhận xóa gói") },
+            text = { Text("Bạn có chắc chắn muốn xóa gói liệu trình \"${pkg.name}\" khỏi hồ sơ khách hàng không?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeletePackage?.invoke()
+                        showDeleteDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AllergyAlertRed)
+                ) {
+                    Text("Xóa gói", color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+
     if (showCheckInDialog) {
         val sdf = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
         var manualIntervalText by remember { mutableStateOf(pkg.intervalDays.toString()) }

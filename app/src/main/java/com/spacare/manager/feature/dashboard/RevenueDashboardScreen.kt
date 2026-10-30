@@ -45,6 +45,7 @@ fun RevenueDashboardScreen(
     selectedDate: String = "16/10/2026",
     transactions: List<InvoiceTransactionRecord> = emptyList(),
     onDateSelected: (String) -> Unit = {},
+    onDeleteTransaction: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -53,6 +54,7 @@ fun RevenueDashboardScreen(
     var showDatePickerDialog by remember { mutableStateOf(false) }
     var showExportConfirmDialog by remember { mutableStateOf(false) }
     var exportedFileName by remember { mutableStateOf<String?>(null) }
+    var transactionToDelete by remember { mutableStateOf<InvoiceTransactionRecord?>(null) }
 
     val availableDates = remember {
         val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
@@ -540,17 +542,36 @@ fun RevenueDashboardScreen(
                                                     )
                                                 }
 
-                                                Surface(
-                                                    shape = CircleShape,
-                                                    color = if (tx.isPaid) SuccessGreenContainer else SpaGoldContainer
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
-                                                    Text(
-                                                        text = if (tx.isPaid) "Đã thanh toán" else "Chờ thanh toán",
-                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = if (tx.isPaid) SuccessGreen else SpaGoldPrimary
-                                                    )
+                                                    Surface(
+                                                        shape = CircleShape,
+                                                        color = if (tx.isPaid) SuccessGreenContainer else SpaGoldContainer
+                                                    ) {
+                                                        Text(
+                                                            text = if (tx.isPaid) "Đã thanh toán" else "Chờ thanh toán",
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (tx.isPaid) SuccessGreen else SpaGoldPrimary
+                                                        )
+                                                    }
+
+                                                    if (onDeleteTransaction != null) {
+                                                        IconButton(
+                                                            onClick = { transactionToDelete = tx },
+                                                            modifier = Modifier.size(28.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.DeleteOutline,
+                                                                contentDescription = "Xóa giao dịch",
+                                                                tint = AllergyAlertRed.copy(alpha = 0.85f),
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
+                                                    }
                                                 }
                                             }
 
@@ -769,6 +790,37 @@ fun RevenueDashboardScreen(
     }
 
     // Modal chọn ngày xem báo cáo bất kỳ
+    transactionToDelete?.let { targetTx ->
+        AlertDialog(
+            onDismissRequest = { transactionToDelete = null },
+            title = { Text("Xác nhận xóa giao dịch") },
+            text = {
+                Text(
+                    "Bạn có chắc chắn muốn xóa giao dịch #${targetTx.invoiceCode} (${targetTx.clientName} - " +
+                    "${if (targetTx.amount == 0L) "Trừ gói" else currencyFormatter.format(targetTx.amount) + " đ"}) không?\n\n" +
+                    "Hành động này sẽ xóa giao dịch và tự động cập nhật lại doanh thu tương ứng."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteTransaction?.invoke(targetTx.id)
+                        transactionToDelete = null
+                        Toast.makeText(context, "Đã xóa giao dịch thành công!", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AllergyAlertRed)
+                ) {
+                    Text("Xóa giao dịch", color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { transactionToDelete = null }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+
     if (showDatePickerDialog) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = remember(selectedDate) {

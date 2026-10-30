@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -57,6 +58,11 @@ fun ClientProfileScreen(
     onCheckInSession: (packageId: String, intervalDays: Int, nextDate: String?) -> Unit,
     onAddTreatmentPackage: (TreatmentPackage) -> Unit,
     onUpdatePackageCycle: ((packageId: String, intervalDays: Int, nextDate: String) -> Unit)? = null,
+    onDeleteTreatmentPackage: ((packageId: String) -> Unit)? = null,
+    onDeleteServiceRecord: ((serviceRecordId: String) -> Unit)? = null,
+    onDeleteSessionPhoto: ((photoId: String) -> Unit)? = null,
+    onDeleteBeforeAfter: ((comparisonId: String) -> Unit)? = null,
+    onAddServiceRecord: ((ServiceRecord) -> Unit)? = null,
     onAddBeforeAfter: (BeforeAfterComparison) -> Unit = {},
     onAddAppointment: (Appointment) -> Unit = {},
     onAddSessionPhoto: (SessionPhotoRecord) -> Unit = {},
@@ -110,6 +116,8 @@ fun ClientProfileScreen(
     }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showAddPackageDialog by remember { mutableStateOf(false) }
+    var serviceRecordToDelete by remember { mutableStateOf<ServiceRecord?>(null) }
+    var showAddServiceRecordDialog by remember { mutableStateOf(false) }
     var showBookAppointmentDialog by remember { mutableStateOf(false) }
     var showAddSessionPhotoDialog by remember { mutableStateOf(false) }
     var photoToRetake by remember { mutableStateOf<SessionPhotoRecord?>(null) }
@@ -231,11 +239,22 @@ fun ClientProfileScreen(
                                     color = CharcoalTextSecondary
                                 )
                                 if (client.email.isNotBlank()) {
-                                    Text(
-                                        text = client.email,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = CharcoalTextMuted
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.Chat,
+                                            contentDescription = null,
+                                            tint = CharcoalTextMuted,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Text(
+                                            text = "Fb/Zalo: ${client.email}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = CharcoalTextMuted
+                                        )
+                                    }
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Surface(
@@ -362,6 +381,9 @@ fun ClientProfileScreen(
                         },
                         onUpdatePackageCycle = { interval, nextDate ->
                             onUpdatePackageCycle?.invoke(pkg.id, interval, nextDate)
+                        },
+                        onDeletePackage = {
+                            onDeleteTreatmentPackage?.invoke(pkg.id)
                         }
                     )
                 }
@@ -372,20 +394,36 @@ fun ClientProfileScreen(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
-                        contentDescription = null,
-                        tint = SageGreenPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = "Dịch Vụ Đã Làm",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = CharcoalTextPrimary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                            contentDescription = null,
+                            tint = SageGreenPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Dịch Vụ Đã Làm",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = CharcoalTextPrimary
+                        )
+                    }
+
+                    if (onAddServiceRecord != null) {
+                        TextButton(
+                            onClick = { showAddServiceRecordDialog = true },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = SageGreenPrimary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("+ Thêm dịch vụ", fontSize = 12.sp, color = SageGreenPrimary, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
             }
 
@@ -424,11 +462,29 @@ fun ClientProfileScreen(
                                     color = SageGreenPrimary,
                                     fontWeight = FontWeight.SemiBold
                                 )
-                                Text(
-                                    text = record.room,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = CharcoalTextMuted
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = record.room,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CharcoalTextMuted
+                                    )
+                                    if (onDeleteServiceRecord != null) {
+                                        IconButton(
+                                            onClick = { serviceRecordToDelete = record },
+                                            modifier = Modifier.size(26.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.DeleteOutline,
+                                                contentDescription = "Xóa lịch sử",
+                                                tint = AllergyAlertRed,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
@@ -473,10 +529,50 @@ fun ClientProfileScreen(
                     onRetakePhotoClick = { photo ->
                         photoToRetake = photo
                         showAddSessionPhotoDialog = true
+                    },
+                    onDeletePhotoClick = { photo ->
+                        onDeleteSessionPhoto?.invoke(photo.id)
                     }
                 )
             }
         }
+    }
+
+
+    serviceRecordToDelete?.let { targetRecord ->
+        AlertDialog(
+            onDismissRequest = { serviceRecordToDelete = null },
+            title = { Text("Xác nhận xóa bản ghi") },
+            text = { Text("Bạn có chắc chắn muốn xóa bản ghi dịch vụ \"${targetRecord.serviceName}\" ngày ${targetRecord.date} khỏi hồ sơ không?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteServiceRecord?.invoke(targetRecord.id)
+                        serviceRecordToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AllergyAlertRed)
+                ) {
+                    Text("Xóa", color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { serviceRecordToDelete = null }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+
+    if (showAddServiceRecordDialog) {
+        AddManualServiceRecordDialog(
+            catalogPackages = catalogPackages,
+            technicians = technicians,
+            onDismissRequest = { showAddServiceRecordDialog = false },
+            onSave = { newRecord ->
+                onAddServiceRecord?.invoke(newRecord)
+                showAddServiceRecordDialog = false
+            }
+        )
     }
 
     // Dialog Sửa khách hàng
@@ -1159,3 +1255,171 @@ fun CreateAppointmentForClientDialog(
     }
 }
 
+
+
+// =========================================================================
+// DIALOG GHI NHẬN THỦ CÔNG DỊCH VỤ ĐÃ LÀM CHO KHÁCH HÀNG
+// =========================================================================
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddManualServiceRecordDialog(
+    catalogPackages: List<SpaServicePackage>,
+    technicians: List<TechnicianStaff>,
+    onDismissRequest: () -> Unit,
+    onSave: (ServiceRecord) -> Unit
+) {
+    var serviceName by remember { mutableStateOf("") }
+    var selectedTech by remember { mutableStateOf(technicians.firstOrNull()?.name ?: "Chuyên viên") }
+    var room by remember { mutableStateOf("Phòng Điều Trị VIP") }
+    var costStr by remember { mutableStateOf("0") }
+    var feedback by remember { mutableStateOf("") }
+    var dateStr by remember {
+        mutableStateOf(SimpleDateFormat("dd/MM/yyyy - HH:mm", Locale.getDefault()).format(Date()))
+    }
+
+    var expandedTechDropdown by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = {
+            Text(
+                text = "Ghi Nhận Dịch Vụ Đã Làm",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        containerColor = WarmBeigeSurface,
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Chọn nhanh từ danh mục nếu có
+                if (catalogPackages.isNotEmpty()) {
+                    Text(
+                        text = "Chọn nhanh từ danh mục:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = CharcoalTextSecondary
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(catalogPackages) { pkg ->
+                            SuggestionChip(
+                                onClick = {
+                                    serviceName = pkg.name
+                                    costStr = pkg.price.toString()
+                                },
+                                label = { Text(pkg.name, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = serviceName,
+                    onValueChange = { serviceName = it },
+                    label = { Text("Tên dịch vụ thực hiện *") },
+                    placeholder = { Text("Ví dụ: Chăm sóc da chuyên sâu") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                // Chọn KTV phụ trách
+                ExposedDropdownMenuBox(
+                    expanded = expandedTechDropdown,
+                    onExpandedChange = { expandedTechDropdown = !expandedTechDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = selectedTech,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Kỹ thuật viên thực hiện") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedTechDropdown) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedTechDropdown,
+                        onDismissRequest = { expandedTechDropdown = false }
+                    ) {
+                        technicians.forEach { tech ->
+                            DropdownMenuItem(
+                                text = { Text(tech.name) },
+                                onClick = {
+                                    selectedTech = tech.name
+                                    expandedTechDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = room,
+                        onValueChange = { room = it },
+                        label = { Text("Phòng") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = costStr,
+                        onValueChange = { costStr = it },
+                        label = { Text("Chi phí (đ)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+
+                OutlinedTextField(
+                    value = dateStr,
+                    onValueChange = { dateStr = it },
+                    label = { Text("Ngày & giờ làm") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = feedback,
+                    onValueChange = { feedback = it },
+                    label = { Text("Ghi chú / Nhận xét của khách") },
+                    placeholder = { Text("Khách hài lòng, da căng bóng...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (serviceName.isNotBlank()) {
+                        val record = ServiceRecord(
+                            id = "SRV-${System.currentTimeMillis()}-${(100..999).random()}",
+                            date = dateStr.trim(),
+                            serviceName = serviceName.trim(),
+                            technicianName = selectedTech.trim(),
+                            room = room.trim().ifBlank { "Phòng Điều Trị" },
+                            cost = costStr.toLongOrNull() ?: 0L,
+                            feedback = feedback.trim().ifBlank { null }
+                        )
+                        onSave(record)
+                    }
+                },
+                enabled = serviceName.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary, contentColor = Color.White)
+            ) {
+                Text("Lưu dịch vụ", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismissRequest) {
+                Text("Hủy")
+            }
+        }
+    )
+}

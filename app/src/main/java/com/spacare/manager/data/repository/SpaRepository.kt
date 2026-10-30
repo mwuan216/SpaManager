@@ -646,6 +646,93 @@ class SpaRepository(context: Context? = null) {
         updateClient(client.copy(sessionPhotos = updated))
     }
 
+    fun deleteTreatmentPackage(clientId: String, packageId: String) {
+        val client = _clients.value.find { it.id == clientId } ?: return
+        val updatedPackages = client.treatmentPackages.filterNot { it.id == packageId }
+        updateClient(client.copy(treatmentPackages = updatedPackages))
+    }
+
+    fun deleteServiceRecord(clientId: String, serviceRecordId: String) {
+        val client = _clients.value.find { it.id == clientId } ?: return
+        val updatedHistory = client.serviceHistory.filterNot { it.id == serviceRecordId }
+        updateClient(client.copy(serviceHistory = updatedHistory))
+    }
+
+    fun deleteSessionPhoto(clientId: String, photoId: String) {
+        val client = _clients.value.find { it.id == clientId } ?: return
+        val updatedPhotos = client.sessionPhotos.filterNot { it.id == photoId }
+        updateClient(client.copy(sessionPhotos = updatedPhotos))
+    }
+
+    fun deleteBeforeAfter(clientId: String, comparisonId: String) {
+        val client = _clients.value.find { it.id == clientId } ?: return
+        val updatedRecords = client.beforeAfterComparisons.filterNot { it.id == comparisonId }
+        updateClient(client.copy(beforeAfterComparisons = updatedRecords))
+    }
+
+    fun addServiceRecord(clientId: String, record: ServiceRecord) {
+        val client = _clients.value.find { it.id == clientId } ?: return
+        val updatedHistory = listOf(record) + client.serviceHistory
+        updateClient(client.copy(serviceHistory = updatedHistory))
+    }
+
+    /**
+     * Tự động ghi nhận dịch vụ đã làm vào hồ sơ khách hàng khi hoàn thành lịch hẹn / thanh toán
+     */
+    fun recordServiceUsage(
+        clientName: String,
+        clientPhone: String,
+        serviceName: String,
+        technicianName: String,
+        room: String = "Phòng Dịch Vụ",
+        cost: Long = 0L,
+        feedback: String? = null,
+        dateStr: String? = null
+    ) {
+        val cleanPhone = clientPhone.replace(" ", "").trim()
+        val client = _clients.value.find {
+            (cleanPhone.isNotBlank() && it.phone.replace(" ", "").trim() == cleanPhone) ||
+            it.fullName.trim().equals(clientName.trim(), ignoreCase = true)
+        }
+        val effectiveDate = dateStr ?: SimpleDateFormat("dd/MM/yyyy - HH:mm", Locale.getDefault()).format(Date())
+        val newRecord = ServiceRecord(
+            id = "SRV-${System.currentTimeMillis()}-${(100..999).random()}",
+            date = effectiveDate,
+            serviceName = serviceName,
+            technicianName = technicianName.ifBlank { "Chuyên viên" },
+            room = room.ifBlank { "Phòng Dịch Vụ" },
+            cost = cost,
+            feedback = feedback ?: "Khách hoàn thành dịch vụ."
+        )
+
+        if (client != null) {
+            val alreadyExists = client.serviceHistory.any {
+                it.serviceName == serviceName && (it.date == effectiveDate || (effectiveDate.length >= 10 && it.date.startsWith(effectiveDate.take(10))))
+            }
+            if (!alreadyExists) {
+                val updatedHistory = listOf(newRecord) + client.serviceHistory
+                updateClient(client.copy(serviceHistory = updatedHistory))
+            }
+        } else if (clientName.isNotBlank()) {
+            val newClient = Client(
+                id = "CLI-${System.currentTimeMillis()}",
+                fullName = clientName.trim(),
+                phone = clientPhone.trim(),
+                email = "",
+                vipTier = VipTier.STANDARD,
+                skinType = "Chưa phân loại",
+                skinConditionNotes = "Khách hàng được tạo tự động khi hoàn thành dịch vụ.",
+                allergyAlerts = emptyList(),
+                contraindications = emptyList(),
+                treatmentPackages = emptyList(),
+                serviceHistory = listOf(newRecord),
+                beforeAfterComparisons = emptyList(),
+                sessionPhotos = emptyList()
+            )
+            addClient(newClient)
+        }
+    }
+
     /**
      * Tự động trừ 1 buổi trong gói liệu trình của khách hàng khi hoàn thành lịch hẹn
      */
@@ -1215,18 +1302,32 @@ class SpaRepository(context: Context? = null) {
                 database?.appointmentDao()?.insert(AppointmentEntity.fromDomain(updated))
             }
 
-            // Khi bấm hoàn thành các gói trừ dịch vụ thì tự trừ buổi của khách hàng đi (chỉ trừ 1 lần duy nhất)
+            // Khi bấm hoàn thành dịch vụ: Tự động trừ gói hoặc cập nhật vào Dịch Vụ Đã Làm của khách hàng
             if (status == AppointmentStatus.COMPLETED && !appt.isSessionDeducted) {
+                var wasDeducted = false
                 if (appt.price <= 0L) {
-                    val deducted = deductPackageSessionForClient(appt.clientName, appt.clientPhone, appt.serviceName)
-                    if (deducted) {
-                        val marked = updated.copy(isSessionDeducted = true)
-                        current[index] = marked
-                        _appointments.value = current
-                        repositoryScope.launch {
-                            database?.appointmentDao()?.insert(AppointmentEntity.fromDomain(marked))
-                        }
-                    }
+                    wasDeducted = deductPackageSessionForClient(appt.clientName, appt.clientPhone, appt.serviceName)
+                }
+
+                // Nếu không trừ được gói (hoặc là dịch vụ có phí), ghi nhận vào lịch sử dịch vụ của khách
+                if (!wasDeducted) {
+                    recordServiceUsage(
+                        clientName = appt.clientName,
+                        clientPhone = appt.clientPhone,
+                        serviceName = appt.serviceName,
+                        technicianName = appt.staffName,
+                        room = appt.roomName,
+                        cost = appt.price,
+                        feedback = "Khách hoàn thành dịch vụ theo lịch hẹn.",
+                        dateStr = "${appt.date} - ${appt.startTime}"
+                    )
+                }
+
+                val marked = updated.copy(isSessionDeducted = true)
+                current[index] = marked
+                _appointments.value = current
+                repositoryScope.launch {
+                    database?.appointmentDao()?.insert(AppointmentEntity.fromDomain(marked))
                 }
             }
 
@@ -1690,6 +1791,15 @@ class SpaRepository(context: Context? = null) {
             database?.transactionDao()?.insert(TransactionEntity.fromDomain(newTx))
         }
         return newTx
+    }
+
+    fun deleteTransaction(transactionId: String) {
+        val current = _transactions.value.toMutableList()
+        current.removeAll { it.id == transactionId }
+        _transactions.value = current
+        repositoryScope.launch {
+            database?.transactionDao()?.deleteById(transactionId)
+        }
     }
 
     fun resetInvoice() {
